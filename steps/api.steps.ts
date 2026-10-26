@@ -1,6 +1,7 @@
 import { expect } from "@playwright/test";
 import { API_URL, WEB_ORIGIN } from "../support/env";
-import { Then, When, type World } from "./fixtures";
+import { freshPhone, type OtpInbox } from "../support/otp-inbox";
+import { Given, Then, When, type World } from "./fixtures";
 
 /**
  * API scenarios use plain fetch rather than Playwright's request context so
@@ -68,13 +69,70 @@ Then("the response has a Retry-After of at most {int} seconds", async ({ world }
   expect(retryAfter).toBeLessThanOrEqual(max);
 });
 
-When("I log in through the API", async ({ world, otp }) => {
+/** Requests and verifies an OTP for `phone`; returns the access token. */
+async function apiLogin(world: World, otp: OtpInbox, phone: string): Promise<string> {
   world.otpMark = otp.mark();
-  const requested = await send(world, "POST", "/auth/otp/request", { body: { phone: world.phone } });
+  const requested = await send(world, "POST", "/auth/otp/request", { body: { phone } });
   expect(requested.status).toBe(202);
-  world.lastCode = await otp.codeFor(world.phone!, world.otpMark);
-  const login = await send(world, "POST", "/auth/otp/verify", { body: { phone: world.phone, code: world.lastCode } });
-  world.accessToken = (login.body as { accessToken?: string }).accessToken;
+  world.lastCode = await otp.codeFor(phone, world.otpMark);
+  const login = await send(world, "POST", "/auth/otp/verify", { body: { phone, code: world.lastCode } });
+  return (login.body as { accessToken: string }).accessToken;
+}
+
+When("I log in through the API", async ({ world, otp }) => {
+  world.accessToken = await apiLogin(world, otp, world.phone!);
+});
+
+Given("I am logged in through the API as a new owner", async ({ world, otp }) => {
+  world.phone = freshPhone();
+  world.accessToken = await apiLogin(world, otp, world.phone);
+});
+
+// --- Batches ---
+
+const asOwner = (token?: string) => ({ authorization: `Bearer ${token}` });
+
+When(/^I create the batch (.+)$/, async ({ world }, json: string) => {
+  const res = await send(world, "POST", "/batches", { body: JSON.parse(json), headers: asOwner(world.accessToken) });
+  world.batchId = (res.body as { batch?: { id: string } })?.batch?.id ?? world.batchId;
+});
+
+Then(
+  "the batch is active with days {string} from {string} to {string}",
+  async ({ world }, days: string, startTime: string, endTime: string) => {
+    expect((world.api?.body as { batch: unknown }).batch).toMatchObject({
+      isActive: true,
+      days: days.split(","),
+      startTime,
+      endTime,
+    });
+  },
+);
+
+When("I GET the batch I created", async ({ world }) => {
+  await send(world, "GET", `/batches/${world.batchId}`, { headers: asOwner(world.accessToken) });
+});
+
+Then("the error names the fields {string}", async ({ world }, fields: string) => {
+  const named = Object.keys((world.api?.body as { error: { fields?: object } }).error.fields ?? {}).sort();
+  expect(named).toEqual(fields.split(",").map((f) => f.trim()).sort());
+});
+
+When("another new owner logs in through the API", async ({ world, otp }) => {
+  world.otherAccessToken = await apiLogin(world, otp, freshPhone());
+});
+
+When("they GET the first owner's batch", async ({ world }) => {
+  await send(world, "GET", `/batches/${world.batchId}`, { headers: asOwner(world.otherAccessToken) });
+});
+
+When("they list their batches", async ({ world }) => {
+  await send(world, "GET", "/batches", { headers: asOwner(world.otherAccessToken) });
+});
+
+Then("the list is empty", async ({ world }) => {
+  expect(world.api?.status).toBe(200);
+  expect((world.api?.body as { batches: unknown[] }).batches).toEqual([]);
 });
 
 When("I verify the same code again", async ({ world }) => {

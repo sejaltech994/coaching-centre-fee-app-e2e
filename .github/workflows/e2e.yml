@@ -15,8 +15,8 @@ on:
   workflow_dispatch:
     inputs:
       app_ref:
-        description: App repo branch, tag or SHA to test
-        default: develop
+        description: App repo branch, tag or SHA to test (blank = same-named branch, else develop)
+        default: ""
 
 permissions:
   contents: read
@@ -42,10 +42,25 @@ jobs:
       OTP_LOG_FILE: /tmp/chukta-api.log
     steps:
       - uses: actions/checkout@v7
+      # Run-on-demand input first; else a same-named branch in the app repo (so
+      # feature/x here tests feature/x there); else develop.
+      - name: Pick the app branch
+        id: app-ref
+        env:
+          INPUT_REF: ${{ inputs.app_ref }}
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: |
+          if [ -n "$INPUT_REF" ]; then
+            echo "ref=$INPUT_REF" >> "$GITHUB_OUTPUT"
+          elif git ls-remote --exit-code --heads https://github.com/sejaltech994/coaching-centre-fee-app "$BRANCH" >/dev/null; then
+            echo "ref=$BRANCH" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=develop" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/checkout@v7
         with:
           repository: sejaltech994/coaching-centre-fee-app
-          ref: ${{ inputs.app_ref || 'develop' }}
+          ref: ${{ steps.app-ref.outputs.ref }}
           path: app
       - uses: actions/setup-node@v7
         with:
@@ -72,6 +87,8 @@ jobs:
           JWT_SECRET: e2e-only-secret-not-used-anywhere-else-0123456789
           SMS_PROVIDER: console
           WEB_ORIGINS: ${{ env.WEB_URL }}
+          # Every scenario logs in from the same IP; the TSD's 20/hour would cap the suite.
+          OTP_PER_IP_PER_HOUR: "1000"
         run: nohup npx tsx src/server.ts > "$OTP_LOG_FILE" 2>&1 &
 
       - name: Serve the web app

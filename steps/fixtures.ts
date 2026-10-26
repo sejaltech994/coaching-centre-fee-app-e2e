@@ -13,6 +13,9 @@ export class World {
   /** Refresh tokens issued in this scenario, oldest first. */
   refreshTokens: string[] = [];
   accessToken?: string;
+  /** A second owner's token, for tenant-isolation scenarios. */
+  otherAccessToken?: string;
+  batchId?: string;
   lastCode?: string;
 }
 
