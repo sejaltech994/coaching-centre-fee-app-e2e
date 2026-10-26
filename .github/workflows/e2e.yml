@@ -1,0 +1,117 @@
+# End-to-end tests for sejaltech994/coaching-centre-fee-app.
+#  - "E2E (local stack)": checks out the app, starts its API (fresh in-memory
+#    database, console SMS whose log supplies the OTPs) and the built web app,
+#    then runs every scenario.
+#  - "Smoke (dev site)": nightly, the browser scenarios that need no API run
+#    against the live dev site, including its security headers.
+name: E2E
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 1 * * *" # 06:30 IST
+  workflow_dispatch:
+    inputs:
+      app_ref:
+        description: App repo branch, tag or SHA to test
+        default: develop
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  local-stack:
+    name: E2E (local stack)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      WEB_URL: http://localhost:3000
+      API_URL: http://localhost:8787/api/v1
+      OTP_LOG_FILE: ${{ github.workspace }}/api.log
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
+        with:
+          repository: sejaltech994/coaching-centre-fee-app
+          ref: ${{ inputs.app_ref || 'develop' }}
+          path: app
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            app/package-lock.json
+
+      - name: Install and build the app
+        working-directory: app
+        env:
+          NEXT_PUBLIC_API_URL: ${{ env.API_URL }}
+        run: |
+          npm ci
+          npm run build -w apps/web
+
+      - name: Start the API (embedded database, console SMS)
+        working-directory: app/apps/api
+        env:
+          NODE_ENV: development
+          PORT: "8787"
+          DATABASE_URL: pglite:memory
+          JWT_SECRET: e2e-only-secret-not-used-anywhere-else-0123456789
+          SMS_PROVIDER: console
+          WEB_ORIGINS: ${{ env.WEB_URL }}
+        run: nohup npx tsx src/server.ts > "$OTP_LOG_FILE" 2>&1 &
+
+      - name: Serve the web app
+        run: nohup python3 -m http.server 3000 --directory app/apps/web/out > web.log 2>&1 &
+
+      - name: Wait for both
+        run: |
+          curl -sf --retry 30 --retry-connrefused --retry-delay 1 "$API_URL/health"
+          curl -sf --retry 30 --retry-connrefused --retry-delay 1 -o /dev/null "$WEB_URL/"
+
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm test
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: e2e-local-stack
+          path: |
+            playwright-report/
+            test-results/
+            api.log
+          retention-days: 14
+          if-no-files-found: ignore
+
+  dev-site:
+    name: Smoke (dev site)
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      WEB_URL: https://chukta-web-dev.chukta.workers.dev
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      # No API is hosted yet, so only browser scenarios run (journeys skip themselves).
+      - run: npx bddgen && npx playwright test --project=desktop --project=mobile
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: e2e-dev-site
+          path: playwright-report/
+          retention-days: 14
+          if-no-files-found: ignore

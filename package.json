@@ -1,0 +1,23 @@
+{
+  "name": "chukta-e2e",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "bddgen": "bddgen",
+    "test": "bddgen && playwright test",
+    "test:landing": "bddgen && playwright test --grep @landing",
+    "test:api": "bddgen && playwright test --project=api",
+    "test:ui": "bddgen && playwright test --ui",
+    "report": "playwright show-report",
+    "typecheck": "bddgen && tsc --noEmit"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.0",
+    "@types/node": "^22",
+    "playwright-bdd": "9.2.1",
+    "typescript": "5.9.3"
+  }
+}

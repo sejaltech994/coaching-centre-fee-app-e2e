@@ -1,0 +1,83 @@
+import type { Page, Route } from "@playwright/test";
+
+type Reply = { status: number; body?: unknown };
+type Recorded = { method: string; path: string; body: unknown };
+
+/**
+ * Replaces the API inside the browser for @mocked scenarios, so screens like
+ * "too many codes" or the resend timer can be tested on demand, without
+ * waiting for real limits. Responses mirror the API's real contract.
+ */
+export class ApiStub {
+  readonly requests: Recorded[] = [];
+  private readonly overrides = new Map<string, Reply>();
+  private offline = false;
+
+  constructor(
+    private readonly apiUrl: string,
+    private readonly webOrigin: string,
+  ) {}
+
+  private defaults(path: string): Reply {
+    switch (path) {
+      case "/auth/otp/request":
+        return { status: 202, body: { expiresInSeconds: 300, resendAfterSeconds: 30 } };
+      case "/auth/otp/verify":
+        return {
+          status: 200,
+          body: {
+            accessToken: "stub-access-token",
+            expiresIn: 900,
+            isNewAccount: true,
+            user: { id: "u1", phone: "+919876543210", name: null, role: "owner" },
+            centre: { id: "c1", name: null, plan: "free" },
+          },
+        };
+      case "/centre":
+        return { status: 200, body: { centre: { id: "c1", name: null, plan: "free", timezone: "Asia/Kolkata" } } };
+      case "/auth/logout":
+        return { status: 204 };
+      default:
+        return { status: 401, body: { error: { code: "unauthenticated", message: "Log in to continue." } } };
+    }
+  }
+
+  /** The next call to `path` gets this error instead of the default. */
+  failNext(path: string, status: number, code: string, message: string): void {
+    this.overrides.set(path, { status, body: { error: { code, message } } });
+  }
+
+  goOffline(): void {
+    this.offline = true;
+  }
+
+  requestsTo(path: string): Recorded[] {
+    return this.requests.filter((r) => r.path === path && r.method !== "OPTIONS");
+  }
+
+  async install(page: Page): Promise<void> {
+    await page.route(`${this.apiUrl}/**`, (route) => this.handle(route));
+  }
+
+  private async handle(route: Route): Promise<void> {
+    if (this.offline) return route.abort("internetdisconnected");
+    const request = route.request();
+    const path = new URL(request.url()).pathname.replace(new URL(this.apiUrl).pathname, "");
+    const cors = {
+      "access-control-allow-origin": this.webOrigin,
+      "access-control-allow-credentials": "true",
+      "access-control-allow-headers": "content-type, authorization",
+      "access-control-allow-methods": "GET, POST, PATCH, PUT, DELETE",
+    };
+    this.requests.push({ method: request.method(), path, body: request.postDataJSON() ?? null });
+    if (request.method() === "OPTIONS") return route.fulfill({ status: 204, headers: cors });
+
+    const reply = this.overrides.get(path) ?? this.defaults(path);
+    this.overrides.delete(path);
+    return route.fulfill({
+      status: reply.status,
+      headers: { ...cors, "content-type": "application/json" },
+      body: reply.body === undefined ? "" : JSON.stringify(reply.body),
+    });
+  }
+}
