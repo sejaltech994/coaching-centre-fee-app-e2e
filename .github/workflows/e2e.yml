@@ -30,10 +30,16 @@ jobs:
     name: E2E (local stack)
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # Playwright's image ships the matching browser: `playwright install --with-deps`
+    # on a plain runner once spent over 10 minutes installing system packages.
+    # Keep the tag equal to @playwright/test in package.json.
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.0-noble
+      options: --ipc=host
     env:
       WEB_URL: http://localhost:3000
       API_URL: http://localhost:8787/api/v1
-      OTP_LOG_FILE: ${{ github.workspace }}/api.log
+      OTP_LOG_FILE: /tmp/chukta-api.log
     steps:
       - uses: actions/checkout@v7
       - uses: actions/checkout@v7
@@ -69,15 +75,23 @@ jobs:
         run: nohup npx tsx src/server.ts > "$OTP_LOG_FILE" 2>&1 &
 
       - name: Serve the web app
-        run: nohup python3 -m http.server 3000 --directory app/apps/web/out > web.log 2>&1 &
+        run: nohup node app/scripts/serve-static.mjs app/apps/web/out 3000 > /tmp/chukta-web.log 2>&1 &
 
       - name: Wait for both
         run: |
-          curl -sf --retry 30 --retry-connrefused --retry-delay 1 "$API_URL/health"
-          curl -sf --retry 30 --retry-connrefused --retry-delay 1 -o /dev/null "$WEB_URL/"
+          node -e '
+            const wait = async (url) => {
+              for (let i = 0; i < 60; i++) {
+                try { if ((await fetch(url)).ok) return; } catch {}
+                await new Promise((r) => setTimeout(r, 1000));
+              }
+              console.error(`Timed out waiting for ${url}`);
+              process.exit(1);
+            };
+            (async () => { for (const url of process.argv.slice(1)) await wait(url); })();
+          ' "$API_URL/health" "$WEB_URL/"
 
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
       - run: npm test
 
       - uses: actions/upload-artifact@v7
@@ -87,7 +101,8 @@ jobs:
           path: |
             playwright-report/
             test-results/
-            api.log
+            /tmp/chukta-api.log
+            /tmp/chukta-web.log
           retention-days: 14
           if-no-files-found: ignore
 
@@ -96,6 +111,9 @@ jobs:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.0-noble
+      options: --ipc=host
     env:
       WEB_URL: https://chukta-web-dev.chukta.workers.dev
     steps:
@@ -105,7 +123,6 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
       # No API is hosted yet, so only browser scenarios run (journeys skip themselves).
       - run: npx bddgen && npx playwright test --project=desktop --project=mobile
       - uses: actions/upload-artifact@v7
