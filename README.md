@@ -9,6 +9,8 @@ Browser and API tests for [coaching-centre-fee-app](https://github.com/sejaltech
 | [`landing.feature`](features/landing.feature) | Headline and calls to action, section navigation, before/after ledger, steps, pricing, sign-up form hand-off to login, footer, mobile menu (opens on top, Escape, tap outside, link), security headers on the live site | 15 |
 | [`login.feature`](features/login.feature) | New owner logs in end to end, wrong code with attempts left, invalid numbers, number formats, rate-limit message, 30-second resend timer, digits-only code box, change number, lost connection | 12 |
 | [`dashboard.feature`](features/dashboard.feature) | No session → login, session survives reload, log out ends the session | 3 |
+| [`batches.feature`](features/batches.feature) | Empty state, add, unique names, change timing, archive and restore, search, form validation, phone bottom navigation (per the Batches design canvas) | 10 |
+| [`api-batches.feature`](features/api-batches.feature) | Batches need a login, create and read, field-level validation errors, one owner can never see another's batches | 4 |
 | [`api-auth.feature`](features/api-auth.feature) | Health, validation errors, unauthenticated and forged tokens, refresh/logout without a session, JSON 404, CORS, resend cooldown, cookie flags, one-time codes, refresh-token reuse | 16 |
 
 ## Tags
@@ -36,7 +38,7 @@ OTP_LOG_FILE=/tmp/chukta-api.log npm test
 - **macOS 13:** Playwright's own Chromium no longer supports it. Use your installed Chrome: `PW_CHANNEL=chrome npm test`.
 - **One area only:** `npm run test:landing`, `npm run test:api`, or `npx playwright test --grep @mobile`.
 - **Watch and debug:** `npm run test:ui`, then `npm run report` for the HTML report with traces.
-- **Rate limits:** the API allows 20 codes per IP per hour. Each full run requests about 8, so restart the API with `DATABASE_URL=pglite:memory` if you run it many times in an hour.
+- **Rate limits:** the API allows 20 codes per IP per hour and a full run needs about 20. Start the API for test runs with `OTP_PER_IP_PER_HOUR=1000` (refused in production), as CI does.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
@@ -49,7 +51,7 @@ OTP_LOG_FILE=/tmp/chukta-api.log npm test
 
 [`.github/workflows/e2e.yml`](.github/workflows/e2e.yml):
 
-- **E2E (local stack):** on every PR, push to `main`, nightly and on demand. Checks out the app (`develop` by default; choose any branch with **Run workflow › app_ref**), starts its API with a fresh in-memory database and console SMS, serves the built web app, and runs every scenario. The HTML report, traces, videos and API log are uploaded as the `e2e-local-stack` artifact.
+- **E2E (local stack):** on every PR, push to `main`, nightly and on demand. Checks out the app: the **Run workflow › app_ref** input if given, else a same-named branch in the app repo (so `feature/x` here tests `feature/x` there), else `develop`, starts its API with a fresh in-memory database and console SMS, serves the built web app, and runs every scenario. The HTML report, traces, videos and API log are uploaded as the `e2e-local-stack` artifact.
 - **Smoke (dev site):** nightly and on demand, runs the browser scenarios against https://chukta-web-dev.chukta.workers.dev, including its security headers.
 
 ## Writing a new scenario

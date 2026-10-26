@@ -12,14 +12,22 @@ export class ApiStub {
   readonly requests: Recorded[] = [];
   private readonly overrides = new Map<string, Reply>();
   private offline = false;
+  private signedIn = false;
 
   constructor(
     private readonly apiUrl: string,
     private readonly webOrigin: string,
   ) {}
 
-  private defaults(path: string): Reply {
+  private defaults(path: string, method: string): Reply {
+    if (path === "/auth/refresh" && this.signedIn) {
+      return { status: 200, body: { accessToken: "stub-access-token", expiresIn: 900 } };
+    }
     switch (path) {
+      case "/batches":
+        return method === "POST"
+          ? { status: 500, body: { error: { code: "stub", message: "The stub does not save batches." } } }
+          : { status: 200, body: { batches: [], nextCursor: null } };
       case "/auth/otp/request":
         return { status: 202, body: { expiresInSeconds: 300, resendAfterSeconds: 30 } };
       case "/auth/otp/verify":
@@ -51,8 +59,15 @@ export class ApiStub {
     this.offline = true;
   }
 
-  requestsTo(path: string): Recorded[] {
-    return this.requests.filter((r) => r.path === path && r.method !== "OPTIONS");
+  /** Pages that need a session get one: /auth/refresh succeeds. */
+  signIn(): void {
+    this.signedIn = true;
+  }
+
+  requestsTo(path: string, method?: string): Recorded[] {
+    return this.requests.filter(
+      (r) => r.path === path && r.method !== "OPTIONS" && (!method || r.method === method),
+    );
   }
 
   async install(page: Page): Promise<void> {
@@ -72,7 +87,7 @@ export class ApiStub {
     this.requests.push({ method: request.method(), path, body: request.postDataJSON() ?? null });
     if (request.method() === "OPTIONS") return route.fulfill({ status: 204, headers: cors });
 
-    const reply = this.overrides.get(path) ?? this.defaults(path);
+    const reply = this.overrides.get(path) ?? this.defaults(path, request.method());
     this.overrides.delete(path);
     return route.fulfill({
       status: reply.status,
