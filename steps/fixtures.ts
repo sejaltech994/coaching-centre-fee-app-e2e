@@ -17,6 +17,9 @@ export class World {
   otherAccessToken?: string;
   batchId?: string;
   lastCode?: string;
+  /** From verifying an unknown number; spent by POST /auth/register. */
+  signupTicket?: string;
+  email?: string;
 }
 
 export const test = base.extend<{ world: World; otp: OtpInbox; stub: ApiStub }>({
