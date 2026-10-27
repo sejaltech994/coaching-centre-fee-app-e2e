@@ -68,18 +68,18 @@ Feature: Auth API contract
     And the response has a Retry-After of at most 30 seconds
 
   @journey
-  Scenario: A login sets a safe refresh cookie and returns an access token
-    Given a mobile number that has never logged in
+  Scenario: A returning owner's login sets a safe refresh cookie and returns an access token
+    Given I have signed up through the API
     When I log in through the API
     Then the response status is 200
-    And the login says this is a new account on the free plan
+    And the login says I am signed in
     And the refresh cookie is HttpOnly, SameSite=Strict and scoped to "/api/v1/auth"
     When I GET "/centre" with my access token
     Then the response status is 200
 
   @journey
   Scenario: A code works only once
-    Given a mobile number that has never logged in
+    Given I have signed up through the API
     When I log in through the API
     And I verify the same code again
     Then the response status is 400
@@ -87,7 +87,7 @@ Feature: Auth API contract
 
   @journey
   Scenario: Reusing an old refresh token signs that session out
-    Given a mobile number that has never logged in
+    Given I have signed up through the API
     When I log in through the API
     And I refresh the session
     And I refresh again with the first refresh token

@@ -38,7 +38,7 @@ OTP_LOG_FILE=/tmp/chukta-api.log npm test
 - **macOS 13:** Playwright's own Chromium no longer supports it. Use your installed Chrome: `PW_CHANNEL=chrome npm test`.
 - **One area only:** `npm run test:landing`, `npm run test:api`, or `npx playwright test --grep @mobile`.
 - **Watch and debug:** `npm run test:ui`, then `npm run report` for the HTML report with traces.
-- **Rate limits:** the API allows 20 codes per IP per hour and a full run needs about 20. Start the API for test runs with `OTP_PER_IP_PER_HOUR=1000` (refused in production), as CI does.
+- **Rate limits:** the API allows 10 codes per IP per hour (TSD) and a full run needs about 40. Start the API for test runs with `OTP_PER_IP_PER_HOUR=1000` (refused in production), as CI does.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |

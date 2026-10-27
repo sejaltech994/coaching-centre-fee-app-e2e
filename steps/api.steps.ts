@@ -69,24 +69,105 @@ Then("the response has a Retry-After of at most {int} seconds", async ({ world }
   expect(retryAfter).toBeLessThanOrEqual(max);
 });
 
-/** Requests and verifies an OTP for `phone`; returns the access token. */
-async function apiLogin(world: World, otp: OtpInbox, phone: string): Promise<string> {
+/** Requests and verifies an OTP for `phone`; leaves the verify response in world.api. */
+async function verifyCode(world: World, otp: OtpInbox, phone: string) {
   world.otpMark = otp.mark();
   const requested = await send(world, "POST", "/auth/otp/request", { body: { phone } });
-  expect(requested.status).toBe(202);
+  expect(requested.status, JSON.stringify(requested.body)).toBe(202);
   world.lastCode = await otp.codeFor(phone, world.otpMark);
-  const login = await send(world, "POST", "/auth/otp/verify", { body: { phone, code: world.lastCode } });
-  return (login.body as { accessToken: string }).accessToken;
+  const verified = await send(world, "POST", "/auth/otp/verify", { body: { phone, code: world.lastCode } });
+  world.signupTicket = (verified.body as { signupTicket?: string })?.signupTicket ?? world.signupTicket;
+  return verified;
+}
+
+const PROFILE = { fullName: "Asha Sharma", centreName: "Sunrise Classes", city: "Pune", centreType: "coaching", acceptedTerms: true };
+
+const register = (world: World, profile: Record<string, unknown>) =>
+  send(world, "POST", "/auth/register", { body: { signupTicket: world.signupTicket, ...profile } });
+
+/** Signs `phone` up as a new owner; returns the access token. */
+async function apiSignUp(world: World, otp: OtpInbox, phone: string, extra: Record<string, unknown> = {}): Promise<string> {
+  const verified = await verifyCode(world, otp, phone);
+  expect(verified.body).toMatchObject({ status: "signup_required" });
+  const registered = await register(world, { ...PROFILE, ...extra });
+  expect(registered.status, JSON.stringify(registered.body)).toBe(201);
+  return (registered.body as { accessToken: string }).accessToken;
 }
 
 When("I log in through the API", async ({ world, otp }) => {
-  world.accessToken = await apiLogin(world, otp, world.phone!);
+  // A new session: earlier refresh tokens (e.g. from signing up) belong to another one.
+  world.refreshTokens = [];
+  await verifyCode(world, otp, world.phone!);
+  world.accessToken = (world.api?.body as { accessToken?: string })?.accessToken;
 });
 
 Given("I am logged in through the API as a new owner", async ({ world, otp }) => {
   world.phone = freshPhone();
-  world.accessToken = await apiLogin(world, otp, world.phone);
+  world.accessToken = await apiSignUp(world, otp, world.phone);
 });
+
+Given("I have signed up through the API", async ({ world, otp }) => {
+  world.phone = freshPhone();
+  world.accessToken = await apiSignUp(world, otp, world.phone);
+});
+
+Given("I have signed up through the API with a new email", async ({ world, otp }) => {
+  world.email = `owner-${crypto.randomUUID()}@example.com`;
+  await apiSignUp(world, otp, freshPhone(), { email: world.email });
+});
+
+When("I verify a code for my number through the API", async ({ world, otp }) => {
+  await verifyCode(world, otp, world.phone!);
+});
+
+Given("I have verified a code for my number through the API", async ({ world, otp }) => {
+  const verified = await verifyCode(world, otp, world.phone!);
+  expect(verified.body).toMatchObject({ status: "signup_required" });
+});
+
+Then("the response asks me to sign up with a ticket valid for {int} seconds", async ({ world }, seconds: number) => {
+  expect(world.api?.body).toEqual({
+    status: "signup_required",
+    signupTicket: expect.any(String),
+    phone: world.phone,
+    expiresIn: seconds,
+  });
+});
+
+Then("no refresh cookie is set", async ({ world }) => {
+  expect(world.api?.headers.getSetCookie().filter((c) => c.startsWith("chukta_rt="))).toEqual([]);
+});
+
+When(
+  "I register as {string} running {string}, a {string} centre in {string}",
+  async ({ world }, fullName: string, centreName: string, centreType: string, city: string) => {
+    await register(world, { fullName, centreName, centreType, city, acceptedTerms: true });
+    world.accessToken = (world.api?.body as { accessToken?: string })?.accessToken ?? world.accessToken;
+  },
+);
+
+// JSON bodies contain braces, which Cucumber expressions treat as parameters.
+When(/^I register with (\{.+\})$/, async ({ world }, json: string) => {
+  await register(world, JSON.parse(json));
+});
+
+When("I register again with the same ticket", async ({ world }) => {
+  await register(world, PROFILE);
+});
+
+When("I register with the same email in capitals", async ({ world }) => {
+  await register(world, { ...PROFILE, email: world.email!.toUpperCase() });
+});
+
+Then(
+  "my profile is {string} with the centre {string} in {string}",
+  async ({ world }, fullName: string, centreName: string, city: string) => {
+    expect(world.api?.body).toMatchObject({
+      user: { fullName, phone: world.phone, role: "owner" },
+      centre: { name: centreName, city, plan: "free" },
+    });
+  },
+);
 
 // --- Batches ---
 
@@ -119,7 +200,7 @@ Then("the error names the fields {string}", async ({ world }, fields: string) =>
 });
 
 When("another new owner logs in through the API", async ({ world, otp }) => {
-  world.otherAccessToken = await apiLogin(world, otp, freshPhone());
+  world.otherAccessToken = await apiSignUp(world, otp, freshPhone());
 });
 
 When("they GET the first owner's batch", async ({ world }) => {
@@ -141,10 +222,20 @@ When("I verify the same code again", async ({ world }) => {
 
 Then("the login says this is a new account on the free plan", async ({ world }) => {
   expect(world.api?.body).toMatchObject({
+    status: "signed_in",
     isNewAccount: true,
     expiresIn: 900,
     user: { phone: world.phone, role: "owner" },
     centre: { plan: "free" },
+  });
+});
+
+Then("the login says I am signed in", async ({ world }) => {
+  expect(world.api?.body).toMatchObject({
+    status: "signed_in",
+    isNewAccount: false,
+    accessToken: expect.any(String),
+    user: { phone: world.phone, role: "owner" },
   });
 });
 
