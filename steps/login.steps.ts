@@ -103,12 +103,16 @@ Then("the mobile number field shows {string}", async ({ page }, value: string) =
 
 const CENTRE_TYPES = ["Tuition", "Coaching", "Dance", "Music", "Sports", "Other"];
 
-async function fillProfile(page: Page, p: { name: string; centre: string; type: string; city: string; acceptTerms: boolean }) {
+async function fillProfile(
+  page: Page,
+  p: { name: string; centre: string; type: string; city: string; acceptTerms: boolean; email?: string },
+) {
   await page.getByLabel("Your name").fill(p.name);
   await page.getByLabel("Centre name").fill(p.centre);
   await page.getByLabel("City").fill(p.city);
   expect(CENTRE_TYPES).toContain(p.type);
   await page.getByLabel("Type of centre").selectOption({ label: p.type });
+  if (p.email) await page.getByLabel("Email (optional)").fill(p.email);
   if (p.acceptTerms) await page.getByRole("checkbox", { name: /I agree to Chukta’s Terms and Privacy notice/ }).check();
   await page.getByRole("button", { name: "Create my centre", exact: true }).click();
 }
@@ -154,13 +158,22 @@ Given("I have verified a mobile number that has never logged in", async ({ page,
 export async function signUpThroughTheUi(page: Page, world: World, otp: OtpInbox) {
   world.phone ??= freshPhone();
   await verifyThroughTheUi(page, world, otp);
-  await fillProfile(page, { name: "Asha Sharma", centre: "Sunrise Classes", type: "Coaching", city: "Pune", acceptTerms: true });
+  await fillProfile(page, {
+    name: "Asha Sharma",
+    centre: "Sunrise Classes",
+    type: "Coaching",
+    city: "Pune",
+    acceptTerms: true,
+    email: world.email,
+  });
   await expect(page).toHaveURL(/\/batches\/?$/);
 }
 
 Given("I have signed up as a new owner", async ({ page, world, otp }) => {
   await signUpThroughTheUi(page, world, otp);
 });
+
+export { fillProfile, typeCode };
 
 When("I log in again with the same number", async ({ page, world, otp }) => {
   await verifyThroughTheUi(page, world, otp);
