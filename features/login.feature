@@ -33,7 +33,7 @@ Feature: Sign up and log in with a mobile number
     When I press "Log out"
     And I log in again with the same number
     Then I am on my dashboard
-    And I see "Sunrise Classes"
+    And the page is headed "Sunrise Classes"
 
   @journey
   Scenario: A wrong code says how many tries are left

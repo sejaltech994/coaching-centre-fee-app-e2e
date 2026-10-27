@@ -33,13 +33,7 @@ export class ApiStub {
       case "/auth/otp/verify":
         return {
           status: 200,
-          body: {
-            accessToken: "stub-access-token",
-            expiresIn: 900,
-            isNewAccount: true,
-            user: { id: "u1", phone: "+919876543210", name: null, role: "owner" },
-            centre: { id: "c1", name: null, plan: "free" },
-          },
+          body: { status: "signup_required", signupTicket: "stub-ticket", phone: "+919876543210", expiresIn: 900 },
         };
       case "/centre":
         return { status: 200, body: { centre: { id: "c1", name: null, plan: "free", timezone: "Asia/Kolkata" } } };

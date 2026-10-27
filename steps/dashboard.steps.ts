@@ -24,3 +24,7 @@ Then("I am on my dashboard", async ({ page }) => {
 Then("I see {string}", async ({ page }, text: string) => {
   await expect(page.getByText(text, { exact: true })).toBeVisible();
 });
+
+Then("the page is headed {string}", async ({ page }, heading: string) => {
+  await expect(page.getByRole("heading", { level: 1, name: heading, exact: true })).toBeVisible();
+});

@@ -95,6 +95,8 @@ async function apiSignUp(world: World, otp: OtpInbox, phone: string, extra: Reco
 }
 
 When("I log in through the API", async ({ world, otp }) => {
+  // A new session: earlier refresh tokens (e.g. from signing up) belong to another one.
+  world.refreshTokens = [];
   await verifyCode(world, otp, world.phone!);
   world.accessToken = (world.api?.body as { accessToken?: string })?.accessToken;
 });
