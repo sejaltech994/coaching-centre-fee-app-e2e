@@ -179,6 +179,30 @@ Then(
   },
 );
 
+// --- Settings ---
+
+// JSON bodies contain braces, which Cucumber expressions treat as parameters, so these use regexes.
+When(/^I PATCH "([^"]+)" with body (.+)$/, async ({ world }, path: string, body: string) => {
+  await send(world, "PATCH", path, { body: JSON.parse(body) });
+});
+
+When(/^I PATCH "([^"]+)" with my access token and body (.+)$/, async ({ world }, path: string, body: string) => {
+  await send(world, "PATCH", path, { body: JSON.parse(body), headers: { authorization: `Bearer ${world.accessToken}` } });
+});
+
+Then(
+  "the centre is {string}, a {string} centre in {string}",
+  async ({ world }, name: string, centreType: string, city: string) => {
+    expect((world.api?.body as { centre: unknown }).centre).toMatchObject({ name, centreType, city });
+  },
+);
+
+Then("my only sign-in method is Google, as my own email", async ({ world }) => {
+  expect((world.api?.body as { identities: unknown }).identities).toEqual([
+    { provider: "google", email: world.google!.email, lastUsedAt: expect.any(String) },
+  ]);
+});
+
 // --- Batches ---
 
 const asOwner = (token?: string) => ({ authorization: `Bearer ${token}` });
