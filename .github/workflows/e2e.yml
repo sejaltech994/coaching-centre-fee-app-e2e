@@ -1,7 +1,7 @@
 # End-to-end tests for sejaltech994/coaching-centre-fee-app.
 #  - "E2E (local stack)": checks out the app, starts its API (fresh in-memory
-#    database, console SMS whose log supplies the OTPs) and the built web app,
-#    then runs every scenario.
+#    database, fake Google account chooser) and the built web app, then runs
+#    every scenario.
 #  - "Smoke (dev site)": nightly, the browser scenarios that need no API run
 #    against the live dev site, including its security headers.
 name: E2E
@@ -54,7 +54,6 @@ jobs:
     env:
       WEB_URL: http://localhost:3000
       API_URL: http://localhost:8787/api/v1
-      OTP_LOG_FILE: /tmp/chukta-api.log
     steps:
       - uses: actions/checkout@v7
       # Run-on-demand input first; else a same-named branch in the app repo (so
@@ -95,7 +94,7 @@ jobs:
           npm ci
           npm run build -w apps/web
 
-      - name: Start the API (embedded database, console SMS)
+      - name: Start the API (embedded database, fake Google)
         working-directory: app/apps/api
         env:
           NODE_ENV: development
@@ -104,11 +103,9 @@ jobs:
           JWT_SECRET: e2e-only-secret-not-used-anywhere-else-0123456789
           SMS_PROVIDER: console
           WEB_ORIGINS: ${{ env.WEB_URL }}
-          # Every scenario logs in from the same IP; the TSD's 20/hour would cap the suite.
-          OTP_PER_IP_PER_HOUR: "1000"
           # Its own account chooser instead of Google's (refused in production).
           GOOGLE_PROVIDER: fake
-        run: nohup npx tsx src/server.ts > "$OTP_LOG_FILE" 2>&1 &
+        run: nohup npx tsx src/server.ts > /tmp/chukta-api.log 2>&1 &
 
       - name: Serve the web app
         run: nohup node app/scripts/serve-static.mjs app/apps/web/out 3000 > /tmp/chukta-web.log 2>&1 &

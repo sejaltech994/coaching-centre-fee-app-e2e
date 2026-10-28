@@ -45,13 +45,8 @@ Then("the pricing section shows {string} and {string}", async ({ page }, a: stri
   await expect(pricing.getByText(b, { exact: true })).toBeVisible();
 });
 
-When("I enter {string} in the sign-up form's mobile number field", async ({ page }, value: string) => {
-  await page.locator("#start").getByLabel("Mobile number").fill(value);
-});
-
-Then("I am still on the landing page", async ({ page }) => {
-  await expect(page).toHaveURL(/\/(#.*)?$/);
-  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+When("I follow {string} in the sign-up band", async ({ page }, name: string) => {
+  await page.locator("#start").getByRole("link", { name, exact: true }).click();
 });
 
 Then("the footer links to {string}, {string} and {string}", async ({ page }, a: string, b: string, c: string) => {

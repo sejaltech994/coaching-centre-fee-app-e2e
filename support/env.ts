@@ -4,7 +4,8 @@ export const API_URL = (process.env.API_URL ?? "http://localhost:8787/api/v1").r
 export const WEB_ORIGIN = new URL(WEB_URL).origin;
 
 /**
- * File the API's console SMS provider writes to (`[sms:console] Chukta login code …`).
- * Scenarios tagged @journey read real OTPs from it, so they only run when it is set.
+ * A live HTTPS site (the nightly smoke run) rather than a local stack. Scenarios
+ * tagged @journey sign in through the API's fake Google (GOOGLE_PROVIDER=fake),
+ * which only a local stack has, so they run only when this is false.
  */
-export const OTP_LOG_FILE = process.env.OTP_LOG_FILE;
+export const DEPLOYED = WEB_URL.startsWith("https://");

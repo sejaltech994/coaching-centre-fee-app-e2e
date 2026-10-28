@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 import { API_URL, WEB_ORIGIN } from "../support/env";
-import { freshPhone, type OtpInbox } from "../support/otp-inbox";
+import { googleSignIn, newGoogleAccount } from "../support/google";
 import { Given, Then, When, type World } from "./fixtures";
 
 /**
@@ -54,116 +54,126 @@ Then("the error code is {string}", async ({ world }, code: string) => {
   expect(errorCode(world)).toBe(code);
 });
 
-When("I request an OTP for {string}", async ({ world }, phone: string) => {
-  await send(world, "POST", "/auth/otp/request", { body: { phone } });
-});
+const PROFILE = {
+  fullName: "Asha Sharma",
+  phone: "98765 43210",
+  centreName: "Sunrise Classes",
+  city: "Pune",
+  centreType: "coaching",
+  acceptedTerms: true,
+};
 
-When("I request an OTP for my number", async ({ world, otp }) => {
-  world.otpMark = otp.mark();
-  await send(world, "POST", "/auth/otp/request", { body: { phone: world.phone } });
-});
-
-Then("the response has a Retry-After of at most {int} seconds", async ({ world }, max: number) => {
-  const retryAfter = Number(world.api?.headers.get("retry-after"));
-  expect(retryAfter).toBeGreaterThan(0);
-  expect(retryAfter).toBeLessThanOrEqual(max);
-});
-
-/** Requests and verifies an OTP for `phone`; leaves the verify response in world.api. */
-async function verifyCode(world: World, otp: OtpInbox, phone: string) {
-  world.otpMark = otp.mark();
-  const requested = await send(world, "POST", "/auth/otp/request", { body: { phone } });
-  expect(requested.status, JSON.stringify(requested.body)).toBe(202);
-  world.lastCode = await otp.codeFor(phone, world.otpMark);
-  const verified = await send(world, "POST", "/auth/otp/verify", { body: { phone, code: world.lastCode } });
-  world.signupTicket = (verified.body as { signupTicket?: string })?.signupTicket ?? world.signupTicket;
-  return verified;
+/** Signs up the Google account waiting in world.pending; keeps the new access token. */
+async function register(world: World, profile: Record<string, unknown>) {
+  await send(world, "POST", "/auth/register", { body: profile, headers: { cookie: world.pending! } });
+  world.accessToken = (world.api?.body as { accessToken?: string })?.accessToken ?? world.accessToken;
+  return world.api!;
 }
 
-const PROFILE = { fullName: "Asha Sharma", centreName: "Sunrise Classes", city: "Pune", centreType: "coaching", acceptedTerms: true };
+/** Google sign-in through the API; leaves the callback response in world.api. */
+async function signInWithGoogle(world: World) {
+  const signedIn = await googleSignIn(world.google!);
+  world.api = { status: signedIn.response.status, headers: signedIn.response.headers, body: null };
+  world.pending = signedIn.pending;
+  if (signedIn.refreshToken) world.refreshTokens.push(signedIn.refreshToken);
+  return signedIn;
+}
 
-const register = (world: World, profile: Record<string, unknown>) =>
-  send(world, "POST", "/auth/register", { body: { signupTicket: world.signupTicket, ...profile } });
+async function signInWithNewGoogleAccount(world: World) {
+  world.google = newGoogleAccount();
+  await signInWithGoogle(world);
+}
 
-/** Signs `phone` up as a new owner; returns the access token. */
-async function apiSignUp(world: World, otp: OtpInbox, phone: string, extra: Record<string, unknown> = {}): Promise<string> {
-  const verified = await verifyCode(world, otp, phone);
-  expect(verified.body).toMatchObject({ status: "signup_required" });
-  const registered = await register(world, { ...PROFILE, ...extra });
+/** Signs a new owner up through the API; returns their access token. */
+async function apiSignUp(world: World): Promise<string> {
+  await signInWithNewGoogleAccount(world);
+  const registered = await register(world, PROFILE);
   expect(registered.status, JSON.stringify(registered.body)).toBe(201);
   return (registered.body as { accessToken: string }).accessToken;
 }
 
-When("I log in through the API", async ({ world, otp }) => {
+const location = (world: World) => new URL(world.api!.headers.get("location")!, API_URL);
+
+When("I sign in with a new Google account through the API", async ({ world }) => {
+  await signInWithNewGoogleAccount(world);
+});
+
+Given("I have signed in with a new Google account through the API", async ({ world }) => {
+  await signInWithNewGoogleAccount(world);
+  expect(world.pending).not.toBe("");
+});
+
+When("I sign in with the same Google account through the API", async ({ world }) => {
   // A new session: earlier refresh tokens (e.g. from signing up) belong to another one.
   world.refreshTokens = [];
-  await verifyCode(world, otp, world.phone!);
-  world.accessToken = (world.api?.body as { accessToken?: string })?.accessToken;
+  await signInWithGoogle(world);
 });
 
-Given("I am logged in through the API as a new owner", async ({ world, otp }) => {
-  world.phone = freshPhone();
-  world.accessToken = await apiSignUp(world, otp, world.phone);
+Given("I am logged in through the API as a new owner", async ({ world }) => {
+  world.accessToken = await apiSignUp(world);
 });
 
-Given("I have signed up through the API", async ({ world, otp }) => {
-  world.phone = freshPhone();
-  world.accessToken = await apiSignUp(world, otp, world.phone);
+Given("I have signed up through the API", async ({ world }) => {
+  world.accessToken = await apiSignUp(world);
 });
 
-Given("I have signed up through the API with a new email", async ({ world, otp }) => {
-  world.email = `owner-${crypto.randomUUID()}@example.com`;
-  await apiSignUp(world, otp, freshPhone(), { email: world.email });
+Then("I am sent to the sign-up page", async ({ world }) => {
+  expect(world.api?.status).toBe(302);
+  expect(location(world).pathname).toMatch(/\/signup\/?$/);
 });
 
-When("I verify a code for my number through the API", async ({ world, otp }) => {
-  await verifyCode(world, otp, world.phone!);
-});
-
-Given("I have verified a code for my number through the API", async ({ world, otp }) => {
-  const verified = await verifyCode(world, otp, world.phone!);
-  expect(verified.body).toMatchObject({ status: "signup_required" });
-});
-
-Then("the response asks me to sign up with a ticket valid for {int} seconds", async ({ world }, seconds: number) => {
-  expect(world.api?.body).toEqual({
-    status: "signup_required",
-    signupTicket: expect.any(String),
-    phone: world.phone,
-    expiresIn: seconds,
-  });
+Then("I am sent to my dashboard", async ({ world }) => {
+  expect(world.api?.status).toBe(302);
+  expect(location(world).pathname).toMatch(/\/dashboard\/?$/);
 });
 
 Then("no refresh cookie is set", async ({ world }) => {
   expect(world.api?.headers.getSetCookie().filter((c) => c.startsWith("chukta_rt="))).toEqual([]);
 });
 
+Then(
+  "the pending sign-in cookie is HttpOnly, SameSite=Lax, scoped to {string} and lasts {int} seconds",
+  async ({ world }, path: string, seconds: number) => {
+    const cookie = world.api?.headers.getSetCookie().find((c) => c.startsWith("chukta_google="));
+    expect(cookie).toBeDefined();
+    for (const part of ["HttpOnly", "SameSite=Lax", `Path=${path}`, `Max-Age=${seconds}`]) expect(cookie).toContain(part);
+  },
+);
+
 When(
-  "I register as {string} running {string}, a {string} centre in {string}",
-  async ({ world }, fullName: string, centreName: string, centreType: string, city: string) => {
-    await register(world, { fullName, centreName, centreType, city, acceptedTerms: true });
-    world.accessToken = (world.api?.body as { accessToken?: string })?.accessToken ?? world.accessToken;
+  "I sign up through the API with the mobile number {string} for {string}, a {string} centre in {string}",
+  async ({ world }, phone: string, centreName: string, centreType: string, city: string) => {
+    await register(world, { ...PROFILE, phone, centreName, centreType, city });
   },
 );
 
 // JSON bodies contain braces, which Cucumber expressions treat as parameters.
-When(/^I register with (\{.+\})$/, async ({ world }, json: string) => {
+When(/^I sign up through the API with (\{.+\})$/, async ({ world }, json: string) => {
   await register(world, JSON.parse(json));
 });
 
-When("I register again with the same ticket", async ({ world }) => {
+When("I sign up again with the same Google sign-in", async ({ world }) => {
   await register(world, PROFILE);
 });
 
-When("I register with the same email in capitals", async ({ world }) => {
-  await register(world, { ...PROFILE, email: world.email!.toUpperCase() });
-});
+Then(
+  "the sign-up says this is a new account on the free plan, with the mobile number unconfirmed",
+  async ({ world }) => {
+    expect(world.api?.body).toMatchObject({
+      status: "signed_in",
+      isNewAccount: true,
+      expiresIn: 900,
+      user: { phone: "+919876543210", phoneVerified: false, email: world.google!.email, role: "owner" },
+      centre: { plan: "free" },
+    });
+  },
+);
 
 Then(
-  "my profile is {string} with the centre {string} in {string}",
-  async ({ world }, fullName: string, centreName: string, city: string) => {
+  "my profile has my Google email and the centre {string} in {string}",
+  async ({ world }, centreName: string, city: string) => {
     expect(world.api?.body).toMatchObject({
-      user: { fullName, phone: world.phone, role: "owner" },
+      user: { email: world.google!.email, role: "owner" },
       centre: { name: centreName, city, plan: "free" },
     });
   },
@@ -199,8 +209,10 @@ Then("the error names the fields {string}", async ({ world }, fields: string) =>
   expect(named).toEqual(fields.split(",").map((f) => f.trim()).sort());
 });
 
-When("another new owner logs in through the API", async ({ world, otp }) => {
-  world.otherAccessToken = await apiSignUp(world, otp, freshPhone());
+When("another new owner logs in through the API", async ({ world }) => {
+  const own = world.accessToken;
+  world.otherAccessToken = await apiSignUp(world);
+  world.accessToken = own;
 });
 
 When("they GET the first owner's batch", async ({ world }) => {
@@ -214,29 +226,6 @@ When("they list their batches", async ({ world }) => {
 Then("the list is empty", async ({ world }) => {
   expect(world.api?.status).toBe(200);
   expect((world.api?.body as { batches: unknown[] }).batches).toEqual([]);
-});
-
-When("I verify the same code again", async ({ world }) => {
-  await send(world, "POST", "/auth/otp/verify", { body: { phone: world.phone, code: world.lastCode } });
-});
-
-Then("the login says this is a new account on the free plan", async ({ world }) => {
-  expect(world.api?.body).toMatchObject({
-    status: "signed_in",
-    isNewAccount: true,
-    expiresIn: 900,
-    user: { phone: world.phone, role: "owner" },
-    centre: { plan: "free" },
-  });
-});
-
-Then("the login says I am signed in", async ({ world }) => {
-  expect(world.api?.body).toMatchObject({
-    status: "signed_in",
-    isNewAccount: false,
-    accessToken: expect.any(String),
-    user: { phone: world.phone, role: "owner" },
-  });
 });
 
 Then(
@@ -254,6 +243,7 @@ Then(
 When("I refresh the session", async ({ world }) => {
   await refreshWith(world, world.refreshTokens.at(-1)!);
   expect(world.api?.status).toBe(200);
+  world.accessToken = (world.api?.body as { accessToken: string }).accessToken;
 });
 
 When("I refresh again with the first refresh token", async ({ world }) => {

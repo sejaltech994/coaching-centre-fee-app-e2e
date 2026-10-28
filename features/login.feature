@@ -1,109 +1,69 @@
 @login
-Feature: Sign up and log in with a mobile number
+Feature: Sign in with Google
   As a centre owner
-  I want to sign up or log in with a code sent to my phone
-  So that I don't need a password
+  I want to sign up and sign in with my Google account
+  So that I don't need a password or a code
 
-  TSD (Registration, login and profile): sign-up and login are one flow. An
-  unknown number goes to profile setup instead of an error; a returning owner
-  goes straight to the dashboard. Codes: 6 digits, valid 5 minutes, 5 tries,
-  30 seconds between codes. Screens follow the "Chukta App — Sign up, Login &
-  Profile" design canvas (A1 Welcome, A2 Mobile number, A3 Enter the code,
-  A4 Wrong code); profile setup (A5) follows its fields from the TSD.
+  Google is the only way in. A Google account Chukta hasn't seen goes on to
+  "Tell us about your centre" (the design canvas's W3, with W2's name and mobile
+  number); a returning one goes straight to the dashboard. The mobile number is
+  for WhatsApp reminders and is confirmed later. Outside production the API
+  offers a fake Google account chooser, so these journeys need no real account.
 
-  Background:
-    Given I open the login page
+  Scenario: The sign-in page offers Google as the only way in
+    When I open the login page
+    Then the page offers "Continue with Google" and no other way to sign in
 
   @journey
-  Scenario: A new owner signs up with a mobile number and sets up their centre
-    Given a mobile number that has never logged in
-    When I choose to continue with my mobile number
-    And I enter my mobile number and press "Send code"
-    Then I am asked for the 6-digit code sent to my number
-    When I enter the code from the SMS
-    And I press "Verify"
-    Then I am asked to set up my centre
-    When I set up my centre as "Asha Sharma" running "Sunrise Classes", a "Coaching" centre in "Pune"
+  Scenario: A new owner signs up with Google and sets up their centre
+    Given a Google account that has never used Chukta
+    When I open the login page
+    And I continue with Google
+    Then I am asked about my centre, signed in with my Google account
+    And my name from Google is filled in
+    When I sign up with the mobile number "98765 43210" for "Sunrise Classes", a "Coaching" centre in "Pune"
     Then I am on the Batches page
     And I am told I have no batches yet
 
   @journey
-  Scenario: A returning owner logs straight in
-    Given I have signed up as a new owner
+  Scenario: A returning owner signs straight in
+    Given I have signed up with Google
     When I press "Log out"
-    And I log in again with the same number
+    And I open the login page
+    And I continue with Google
     Then I am on my dashboard
     And the page is headed "Sunrise Classes"
 
   @journey
-  Scenario: A wrong code says how many tries are left
-    Given a mobile number that has never logged in
-    When I choose to continue with my mobile number
-    And I enter my mobile number and press "Send code"
-    And I enter a wrong code
-    And I press "Verify"
-    Then I see the error "That code didn’t match. 4 tries left."
+  Scenario: Signing up needs the terms accepted
+    Given I have continued with a Google account that has never used Chukta
+    When I sign up without accepting the terms
+    Then I see the error "Accept the terms and privacy notice to continue."
+    And I am still asked about my centre
 
   @journey
-  Scenario: Setting up a centre needs the terms accepted
-    Given I have verified a mobile number that has never logged in
-    When I set up my centre without accepting the terms
-    Then I see the error "Accept the terms and privacy notice to continue."
-    And I am still asked to set up my centre
-
-  Scenario Outline: An invalid number is explained before any code is sent
-    Given the API is replaced by a stub
-    When I choose to continue with my mobile number
-    And I enter "<number>" as my mobile number and press "Send code"
-    Then I see the error "Enter a 10-digit Indian mobile number."
-    And no OTP was requested
-
-    Examples:
-      | number     |
-      | 12345      |
-      | 5876543210 |
+  Scenario: Cancelling at Google comes back to sign-in with an explanation
+    When I open the login page
+    And I continue with Google but cancel
+    Then I see the error "Google sign-in was cancelled. Try again when you’re ready."
+    And the page offers "Continue with Google" and no other way to sign in
 
   @mocked
-  Scenario: The number from the landing page is carried over, skipping the welcome screen
-    When I open the login page with the number "98765 43210"
-    Then the mobile number field shows "98765 43210"
+  Scenario: A mobile number that isn't Indian is explained before anything is sent
+    When I open the sign-up page
+    And I sign up with the mobile number "12345" for "Sunrise Classes", a "Coaching" centre in "Pune"
+    Then the mobile number field says "Enter a 10-digit Indian mobile number."
+    And nothing was sent to sign up
 
   @mocked
-  Scenario: The server's limit message is shown when too many codes are requested
-    Given the API will refuse OTP requests with "rate_limited" "Too many codes requested. Try again later."
-    When I choose to continue with my mobile number
-    And I enter "9876543210" as my mobile number and press "Send code"
-    Then I see the error "Too many codes requested. Try again later."
-    And I am still asked for my mobile number
-
-  @mocked
-  Scenario: A new code can be requested only after 30 seconds
-    When I choose to continue with my mobile number
-    And I enter "9876543210" as my mobile number and press "Send code"
-    Then the "Resend code in 0:30" button is disabled
-    When 30 seconds pass
-    Then the "Resend code" button is enabled
-    When I press "Resend code"
-    Then 2 OTPs were requested
-
-  @mocked
-  Scenario: A pasted code fills all six boxes
-    When I choose to continue with my mobile number
-    And I enter "9876543210" as my mobile number and press "Send code"
-    And I paste "482913" into the code boxes
-    Then the code boxes show "482913"
-
-  @mocked
-  Scenario: I can go back and change the number
-    When I choose to continue with my mobile number
-    And I enter "9876543210" as my mobile number and press "Send code"
-    And I follow "Change number"
-    Then I am still asked for my mobile number
-    And the mobile number field shows "9876543210"
+  Scenario: Sign-up without a Google sign-in goes back to sign in
+    Given the API has no Google sign-in waiting
+    When I open the sign-up page
+    Then I see the error "Your Google sign-in has expired. Continue with Google again."
+    And the page offers "Continue with Google" and no other way to sign in
 
   @mocked
   Scenario: A lost connection is explained in plain words
     Given the API cannot be reached
-    When I choose to continue with my mobile number
-    And I enter "9876543210" as my mobile number and press "Send code"
+    When I open the sign-up page
     Then I see the error "Can't reach Chukta. Check your connection and try again."

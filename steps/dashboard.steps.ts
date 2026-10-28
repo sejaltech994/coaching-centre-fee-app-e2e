@@ -1,9 +1,9 @@
 import { expect } from "@playwright/test";
 import { Given, Then, When } from "./fixtures";
-import { signUpThroughTheUi } from "./login.steps";
+import { signUpWithGoogle } from "./login.steps";
 
-Given("I have logged in as a new owner", async ({ page, world, otp }) => {
-  await signUpThroughTheUi(page, world, otp);
+Given("I have logged in as a new owner", async ({ page, world }) => {
+  await signUpWithGoogle(page, world);
   await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Dashboard", exact: true }).click();
   await expect(page).toHaveURL(/\/dashboard\/?$/);
 });

@@ -8,26 +8,15 @@ Feature: Auth API contract
     Then the response status is 200
     And the response body is {"status":"ok"}
 
-  Scenario Outline: Numbers that aren't Indian mobiles are rejected
-    When I request an OTP for "<number>"
-    Then the response status is 400
-    And the error code is "invalid_phone"
+  Scenario Outline: Signing in with a mobile number is withdrawn
+    When I POST to "<path>" with body {"phone":"9876543210","code":"123456"}
+    Then the response status is 404
+    And the error code is "not_found"
 
     Examples:
-      | number     |
-      | 12345      |
-      | 5876543210 |
-      | +14155550100 |
-
-  Scenario: A request without a phone number is rejected
-    When I POST to "/auth/otp/request" with body {}
-    Then the response status is 400
-    And the error code is "invalid_request"
-
-  Scenario: A malformed code is rejected before it is checked
-    When I POST to "/auth/otp/verify" with body {"phone":"9876543210","code":"12a456"}
-    Then the response status is 400
-    And the error code is "invalid_request"
+      | path              |
+      | /auth/otp/request |
+      | /auth/otp/verify  |
 
   Scenario: The centre needs an access token
     When I GET "/centre"
@@ -59,36 +48,19 @@ Feature: Auth API contract
     Then the API does not allow that origin
 
   @journey
-  Scenario: A second code within 30 seconds is refused with Retry-After
-    Given a mobile number that has never logged in
-    When I request an OTP for my number
-    And I request an OTP for my number
-    Then the response status is 429
-    And the error code is "otp_resend_too_soon"
-    And the response has a Retry-After of at most 30 seconds
-
-  @journey
-  Scenario: A returning owner's login sets a safe refresh cookie and returns an access token
+  Scenario: A returning owner's Google sign-in sets a safe refresh cookie
     Given I have signed up through the API
-    When I log in through the API
-    Then the response status is 200
-    And the login says I am signed in
+    When I sign in with the same Google account through the API
+    Then I am sent to my dashboard
     And the refresh cookie is HttpOnly, SameSite=Strict and scoped to "/api/v1/auth"
-    When I GET "/centre" with my access token
+    When I refresh the session
+    And I GET "/centre" with my access token
     Then the response status is 200
-
-  @journey
-  Scenario: A code works only once
-    Given I have signed up through the API
-    When I log in through the API
-    And I verify the same code again
-    Then the response status is 400
-    And the error code is "otp_expired"
 
   @journey
   Scenario: Reusing an old refresh token signs that session out
     Given I have signed up through the API
-    When I log in through the API
+    When I sign in with the same Google account through the API
     And I refresh the session
     And I refresh again with the first refresh token
     Then the response status is 401

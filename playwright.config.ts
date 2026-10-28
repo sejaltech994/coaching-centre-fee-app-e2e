@@ -1,6 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 import { defineBddConfig } from "playwright-bdd";
-import { OTP_LOG_FILE, WEB_URL } from "./support/env";
+import { DEPLOYED, WEB_URL } from "./support/env";
 
 const testDir = defineBddConfig({
   features: "features/**/*.feature",
@@ -8,12 +8,9 @@ const testDir = defineBddConfig({
 });
 
 // Scenarios that need something this run doesn't have are left out, not failed:
-// @journey needs the API's OTP log; @deployed needs a live HTTPS site.
-const unavailable = [!OTP_LOG_FILE && "@journey", !WEB_URL.startsWith("https://") && "@deployed"].filter(Boolean);
-const excluding = (tags: string[]) => {
-  const all = [...tags, ...unavailable];
-  return all.length ? new RegExp(all.join("|")) : undefined;
-};
+// @journey needs a local stack (with the fake Google); @deployed needs a live HTTPS site.
+const unavailable = [DEPLOYED ? "@journey" : "@deployed"];
+const excluding = (tags: string[]) => new RegExp([...tags, ...unavailable].join("|"));
 
 const ci = !!process.env.CI;
 // PW_CHANNEL=chrome drives the installed Google Chrome instead of Playwright's
