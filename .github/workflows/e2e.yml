@@ -74,6 +74,8 @@ jobs:
         working-directory: app
         env:
           NEXT_PUBLIC_API_URL: ${{ env.API_URL }}
+          # Shows "Continue with Google"; the API below serves a fake Google.
+          NEXT_PUBLIC_GOOGLE_SIGN_IN: "on"
         run: |
           npm ci
           npm run build -w apps/web
@@ -89,6 +91,8 @@ jobs:
           WEB_ORIGINS: ${{ env.WEB_URL }}
           # Every scenario logs in from the same IP; the TSD's 20/hour would cap the suite.
           OTP_PER_IP_PER_HOUR: "1000"
+          # Its own account chooser instead of Google's (refused in production).
+          GOOGLE_PROVIDER: fake
         run: nohup npx tsx src/server.ts > "$OTP_LOG_FILE" 2>&1 &
 
       - name: Serve the web app
