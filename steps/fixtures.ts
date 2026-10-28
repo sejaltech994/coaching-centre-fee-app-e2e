@@ -20,6 +20,10 @@ export class World {
   /** From verifying an unknown number; spent by POST /auth/register. */
   signupTicket?: string;
   email?: string;
+  /** The account chosen on the (fake) Google account chooser. */
+  google?: { email: string; name: string };
+  /** From GET /auth/google/start: where it sent the browser, and its OAuth cookie. */
+  googleStart?: { location: URL; cookie: string };
 }
 
 export const test = base.extend<{ world: World; otp: OtpInbox; stub: ApiStub }>({

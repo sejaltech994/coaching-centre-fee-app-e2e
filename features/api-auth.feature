@@ -95,3 +95,16 @@ Feature: Auth API contract
     And the error code is "refresh_token_reused"
     When I refresh again with the newest refresh token
     Then the response status is 401
+
+  @google
+  Scenario: Google sign-in starts with state, nonce and PKCE, and keeps them in a short-lived cookie
+    When I start Google sign-in through the API
+    Then I am sent to the Google account chooser with a state, a nonce and an S256 code challenge
+    And the OAuth cookie is HttpOnly, SameSite=Lax, scoped to "/api/v1/auth/google" and lasts 600 seconds
+
+  @google
+  Scenario: A Google callback whose state doesn't match is refused
+    When I start Google sign-in through the API
+    And Google sends me back with a different state
+    Then I am sent back to the login page with the Google error "failed"
+    And no session cookie is set
