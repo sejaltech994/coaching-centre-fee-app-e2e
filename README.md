@@ -21,6 +21,7 @@ Browser and API tests for [coaching-centre-fee-app](https://github.com/sejaltech
 | `@mobile` | Runs on a phone-sized screen (Pixel 7) in the `mobile` project |
 | `@api` | Calls the API directly; runs in the `api` project |
 | `@journey` | Uses the real API, signing in through its fake Google account chooser (`GOOGLE_PROVIDER=fake`). Runs against a local stack, not a live `https://` site |
+| `@sms` | Reads a real code from the API's log, where its console SMS provider writes it. Runs only when `OTP_LOG_FILE` is set |
 | `@mocked` | Browser talks to a stubbed API with a controllable clock, so limits and timers are tested on demand |
 | `@deployed` | Needs a live HTTPS site (e.g. response headers). Runs only when `WEB_URL` is `https://…` |
 
@@ -30,12 +31,12 @@ Needs Node 22.13+ and the app running with Google sign-in turned on and the fake
 
 ```sh
 # In the app repo:
-GOOGLE_PROVIDER=fake npm run dev -w apps/api
+GOOGLE_PROVIDER=fake npm run dev -w apps/api 2>&1 | tee /tmp/chukta-api.log
 NEXT_PUBLIC_GOOGLE_SIGN_IN=on npm run dev -w apps/web
 
-# Here:
+# Here (OTP_LOG_FILE is the API's output, for @sms scenarios; leave it out to skip them):
 npm install
-npm test
+OTP_LOG_FILE=/tmp/chukta-api.log npm test
 ```
 
 - **macOS 13:** Playwright's own Chromium no longer supports it. Use your installed Chrome: `PW_CHANNEL=chrome npm test`.
@@ -46,6 +47,7 @@ npm test
 | --- | --- | --- |
 | `WEB_URL` | `http://localhost:3000` | Web app under test |
 | `API_URL` | `http://localhost:8787/api/v1` | API under test |
+| `OTP_LOG_FILE` | not set | The API's log, to read codes from; enables `@sms` |
 | `PW_CHANNEL` | not set | `chrome` to use installed Google Chrome |
 
 ## CI

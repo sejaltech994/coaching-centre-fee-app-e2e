@@ -50,3 +50,26 @@ Feature: Profile and account
     Then I am on the login page
     When I open the dashboard
     Then I am on the login page
+
+  @journey
+  Scenario: Settings asks me to confirm my mobile number
+    Given I have logged in as a new owner
+    When I open Settings from the menu
+    Then I am asked to confirm my mobile number to send fee reminders on WhatsApp
+
+  @journey @sms
+  Scenario: I confirm a mobile number with the code sent to it
+    Given I have logged in as a new owner
+    When I open Settings from the menu
+    And I confirm a new mobile number with the code from the SMS
+    Then I see "Mobile number confirmed."
+    And my new mobile number is shown as confirmed
+    And I am no longer asked to confirm my mobile number
+
+  @journey @sms
+  Scenario: A wrong code says how many tries are left
+    Given I have logged in as a new owner
+    When I open Settings from the menu
+    And I ask for a code for a new mobile number
+    And I enter a wrong code
+    Then I see the error "That code didn’t match. 4 tries left."
