@@ -1,6 +1,8 @@
 import { expect, type Page } from "@playwright/test";
+import { API_URL } from "../support/env";
+import { googleSignIn } from "../support/google";
 import { freshPhone, type OtpInbox } from "../support/otp-inbox";
-import { Then, When, type World } from "./fixtures";
+import { Given, Then, When, type World } from "./fixtures";
 
 const section = (page: Page, name: string) => page.getByRole("region", { name, exact: true });
 
@@ -115,4 +117,31 @@ Then("my new mobile number is shown as confirmed", async ({ page, world }) => {
   await expect(profile).toContainText(spaced(world.phone!));
   await expect(profile).not.toContainText("Not confirmed");
   await expect(profile.getByRole("button", { name: "Change mobile number", exact: true })).toBeVisible();
+});
+
+// --- Devices ---
+
+Given("I am also signed in on another device", async ({ world }) => {
+  // The same Google account signing in again, outside this browser.
+  const signedIn = await googleSignIn(world.google!);
+  expect(signedIn.refreshToken).toBeDefined();
+  world.otherDevice = signedIn.refreshToken;
+});
+
+const deviceRows = (page: Page) => section(page, "Devices").getByRole("listitem");
+
+Then("my devices are {string} only", async ({ page }, label: string) => {
+  await expect(deviceRows(page)).toHaveCount(1);
+  await expect(deviceRows(page).first()).toContainText(label);
+  await expect(section(page, "Devices").getByRole("button")).toHaveCount(0);
+});
+
+Then("I see {int} devices, this one first", async ({ page }, count: number) => {
+  await expect(deviceRows(page)).toHaveCount(count);
+  await expect(deviceRows(page).first()).toContainText("This device");
+});
+
+Then("the other device is signed out", async ({ world }) => {
+  const res = await fetch(`${API_URL}/auth/refresh`, { method: "POST", headers: { cookie: `chukta_rt=${world.otherDevice}` } });
+  expect(res.status).toBe(401);
 });

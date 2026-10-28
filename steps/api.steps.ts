@@ -250,6 +250,11 @@ Then("my number is confirmed", async ({ world }) => {
   expect((world.api?.body as { user: unknown }).user).toMatchObject({ phone: world.phone, phoneVerified: true });
 });
 
+Then("the response lists {int} devices, this one first", async ({ world }, count: number) => {
+  const { sessions } = world.api?.body as { sessions: { current: boolean }[] };
+  expect(sessions.map((s) => s.current)).toEqual([true, ...Array(count - 1).fill(false)]);
+});
+
 // --- Batches ---
 
 const asOwner = (token?: string) => ({ authorization: `Bearer ${token}` });

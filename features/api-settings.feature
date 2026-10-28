@@ -59,3 +59,14 @@ Feature: Profile and account API contract
     When I POST to "/me/phone/verify" with my access token and body {"phone":"12345"}
     Then the response status is 400
     And the error names the fields "phone"
+
+  @journey
+  Scenario: Signing out of other devices keeps this one
+    Given I am logged in through the API as a new owner
+    And I am also signed in on another device
+    When I GET "/me/sessions" with my access token
+    Then the response lists 2 devices, this one first
+    When I POST to "/me/sessions/sign-out-others" with my access token and body {}
+    Then the response status is 200
+    And the response body is {"signedOut":1}
+    And the other device is signed out
