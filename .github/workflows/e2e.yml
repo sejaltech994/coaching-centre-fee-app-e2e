@@ -26,15 +26,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # The container image must match @playwright/test exactly, so it's read from
+  # package.json rather than typed here: a Playwright bump is one change.
+  playwright:
+    name: Playwright version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.read.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: package.json
+          sparse-checkout-cone-mode: false
+      - id: read
+        run: echo "version=$(node -p 'require("./package.json").devDependencies["@playwright/test"]')" >> "$GITHUB_OUTPUT"
+
   local-stack:
     name: E2E (local stack)
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    needs: playwright
     # Playwright's image ships the matching browser: `playwright install --with-deps`
     # on a plain runner once spent over 10 minutes installing system packages.
-    # Keep the tag equal to @playwright/test in package.json.
     container:
-      image: mcr.microsoft.com/playwright:v1.64.0-noble
+      image: mcr.microsoft.com/playwright:v${{ needs.playwright.outputs.version }}-noble
       options: --ipc=host
     env:
       WEB_URL: http://localhost:3000
@@ -130,10 +145,11 @@ jobs:
   dev-site:
     name: Smoke (dev site)
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    needs: playwright
     runs-on: ubuntu-latest
     timeout-minutes: 15
     container:
-      image: mcr.microsoft.com/playwright:v1.64.0-noble
+      image: mcr.microsoft.com/playwright:v${{ needs.playwright.outputs.version }}-noble
       options: --ipc=host
     env:
       WEB_URL: https://chukta-web-dev.chukta.workers.dev
