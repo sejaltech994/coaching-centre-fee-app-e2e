@@ -1,6 +1,7 @@
 import { expect } from "@playwright/test";
 import { API_URL, WEB_ORIGIN } from "../support/env";
 import { googleSignIn, newGoogleAccount } from "../support/google";
+import { freshPhone, type OtpInbox } from "../support/otp-inbox";
 import { Given, Then, When, type World } from "./fixtures";
 
 /**
@@ -201,6 +202,52 @@ Then("my only sign-in method is Google, as my own email", async ({ world }) => {
   expect((world.api?.body as { identities: unknown }).identities).toEqual([
     { provider: "google", email: world.google!.email, lastUsedAt: expect.any(String) },
   ]);
+});
+
+// --- Confirming the mobile number ---
+
+const asTheOwner = (world: World) => ({ authorization: `Bearer ${world.accessToken}` });
+
+async function askForCode(world: World, otp: OtpInbox, token = world.accessToken) {
+  world.otpMark = otp.mark();
+  await send(world, "POST", "/me/phone/verify", { body: { phone: world.phone }, headers: { authorization: `Bearer ${token}` } });
+}
+
+async function confirmWithCode(world: World, otp: OtpInbox) {
+  const code = await otp.codeFor(world.phone!, world.otpMark);
+  await send(world, "POST", "/me/phone/confirm", { body: { phone: world.phone, code }, headers: asTheOwner(world) });
+}
+
+When(/^I POST to "([^"]+)" with my access token and body (.+)$/, async ({ world }, path: string, body: string) => {
+  await send(world, "POST", path, { body: JSON.parse(body), headers: asTheOwner(world) });
+});
+
+When("I ask the API for a code for a new mobile number", async ({ world, otp }) => {
+  world.phone = freshPhone();
+  await askForCode(world, otp);
+});
+
+When("I confirm the number through the API with the code from the SMS", async ({ world, otp }) => {
+  await confirmWithCode(world, otp);
+});
+
+Given("I have confirmed a new mobile number through the API", async ({ world, otp }) => {
+  world.phone = freshPhone();
+  await askForCode(world, otp);
+  expect(world.api?.status, JSON.stringify(world.api?.body)).toBe(202);
+  await confirmWithCode(world, otp);
+  expect(world.api?.status, JSON.stringify(world.api?.body)).toBe(200);
+});
+
+When("another new owner asks the API for a code for the same number", async ({ world, otp }) => {
+  const own = world.accessToken;
+  const other = await apiSignUp(world);
+  world.accessToken = own;
+  await askForCode(world, otp, other);
+});
+
+Then("my number is confirmed", async ({ world }) => {
+  expect((world.api?.body as { user: unknown }).user).toMatchObject({ phone: world.phone, phoneVerified: true });
 });
 
 // --- Batches ---
