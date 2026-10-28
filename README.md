@@ -20,31 +20,32 @@ Browser and API tests for [coaching-centre-fee-app](https://github.com/sejaltech
 | `@landing` `@login` `@dashboard` `@api` | Feature area |
 | `@mobile` | Runs on a phone-sized screen (Pixel 7) in the `mobile` project |
 | `@api` | Calls the API directly; runs in the `api` project |
-| `@journey` | Uses the real API and a real OTP read from the API's log. Runs only when `OTP_LOG_FILE` is set |
+| `@journey` | Uses the real API, signing in through its fake Google account chooser (`GOOGLE_PROVIDER=fake`). Runs against a local stack, not a live `https://` site |
 | `@mocked` | Browser talks to a stubbed API with a controllable clock, so limits and timers are tested on demand |
 | `@deployed` | Needs a live HTTPS site (e.g. response headers). Runs only when `WEB_URL` is `https://…` |
 
 ## Run locally
 
-Needs Node 22.13+ and the app running (see the app's README: `npm run dev -w apps/api` and `npm run dev -w apps/web`).
+Needs Node 22.13+ and the app running with Google sign-in turned on and the fake Google account chooser (see the app's README):
 
 ```sh
+# In the app repo:
+GOOGLE_PROVIDER=fake npm run dev -w apps/api
+NEXT_PUBLIC_GOOGLE_SIGN_IN=on npm run dev -w apps/web
+
+# Here:
 npm install
-# Write the API's output to a file so @journey scenarios can read the OTPs:
-#   (in the app repo) npm run dev -w apps/api 2>&1 | tee /tmp/chukta-api.log
-OTP_LOG_FILE=/tmp/chukta-api.log npm test
+npm test
 ```
 
 - **macOS 13:** Playwright's own Chromium no longer supports it. Use your installed Chrome: `PW_CHANNEL=chrome npm test`.
 - **One area only:** `npm run test:landing`, `npm run test:api`, or `npx playwright test --grep @mobile`.
 - **Watch and debug:** `npm run test:ui`, then `npm run report` for the HTML report with traces.
-- **Rate limits:** the API allows 10 codes per IP per hour (TSD) and a full run needs about 40. Start the API for test runs with `OTP_PER_IP_PER_HOUR=1000` (refused in production), as CI does.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `WEB_URL` | `http://localhost:3000` | Web app under test |
 | `API_URL` | `http://localhost:8787/api/v1` | API under test |
-| `OTP_LOG_FILE` | not set | API log to read OTPs from; enables `@journey` |
 | `PW_CHANNEL` | not set | `chrome` to use installed Google Chrome |
 
 ## CI

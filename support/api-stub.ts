@@ -28,13 +28,8 @@ export class ApiStub {
         return method === "POST"
           ? { status: 500, body: { error: { code: "stub", message: "The stub does not save batches." } } }
           : { status: 200, body: { batches: [], nextCursor: null } };
-      case "/auth/otp/request":
-        return { status: 202, body: { expiresInSeconds: 300, resendAfterSeconds: 30 } };
-      case "/auth/otp/verify":
-        return {
-          status: 200,
-          body: { status: "signup_required", signupTicket: "stub-ticket", phone: "+919876543210", expiresIn: 900 },
-        };
+      case "/auth/google/pending":
+        return { status: 200, body: { email: "asha@example.com", name: "Asha Sharma" } };
       case "/centre":
         return { status: 200, body: { centre: { id: "c1", name: null, plan: "free", timezone: "Asia/Kolkata" } } };
       case "/auth/logout":

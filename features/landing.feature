@@ -32,15 +32,9 @@ Feature: Landing page
   Scenario: Pricing shows the Free and Pro plans
     Then the pricing section shows "₹0" and "₹499"
 
-  Scenario: The sign-up form carries the number to the login page
-    When I enter "98765 43210" in the sign-up form's mobile number field
-    And I press "Get OTP"
+  Scenario: The sign-up band sends new owners to sign in with Google
+    When I follow "Continue with Google" in the sign-up band
     Then I am on the login page
-    And the mobile number field shows "98765 43210"
-
-  Scenario: The sign-up form needs a number
-    When I press "Get OTP"
-    Then I am still on the landing page
 
   Scenario: The footer links to the legal and contact pages
     Then the footer links to "/privacy", "/terms" and "/contact"
