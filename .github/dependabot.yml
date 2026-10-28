@@ -1,0 +1,25 @@
+# Weekly dependency updates, raised as PRs into main so they pass the E2E run
+# before they're merged. CI picks the Playwright container image from
+# package.json, so a Playwright bump needs no other change.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels: [dependencies]
+    groups:
+      # @playwright/test and playwright-bdd move together.
+      playwright:
+        patterns: ["@playwright/*", "playwright*"]
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    labels: [dependencies, ci]
