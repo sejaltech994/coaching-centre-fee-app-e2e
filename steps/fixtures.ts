@@ -17,6 +17,7 @@ export class World {
   studentId?: string;
   feePlanId?: string;
   enrolmentId?: string;
+  invoiceId?: string;
   /** The account chosen on the (fake) Google account chooser. */
   google?: GoogleAccount;
   /** A new Google account's pending sign-in cookie, spent by POST /auth/register. */
