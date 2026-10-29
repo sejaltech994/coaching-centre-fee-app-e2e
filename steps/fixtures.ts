@@ -15,6 +15,7 @@ export class World {
   /** A second owner's token, for tenant-isolation scenarios. */
   otherAccessToken?: string;
   batchId?: string;
+  studentId?: string;
   /** The account chosen on the (fake) Google account chooser. */
   google?: GoogleAccount;
   /** A new Google account's pending sign-in cookie, spent by POST /auth/register. */
