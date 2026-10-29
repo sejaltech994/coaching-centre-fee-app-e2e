@@ -2,7 +2,7 @@ import { expect, type Page } from "@playwright/test";
 import { Given, Then, When } from "./fixtures";
 
 // Screens follow the "Chukta App — Batches" design canvas: a table of batches
-// (cards on phones) and a separate New batch / Edit batch form.
+// (cards on phones), each batch's own page, and a separate New batch / Edit batch form.
 
 const DAY_NAMES: Record<string, string> = {
   Mon: "Monday",
@@ -34,8 +34,11 @@ async function addBatch(page: Page, name: string, subject: string, days: string,
   await page.getByRole("button", { name: "Create batch", exact: true }).click();
 }
 
+/** Opens the batch's own page from the list, then its Edit batch form. */
 async function openBatch(page: Page, name: string) {
   await page.getByRole("link", { name, exact: true }).click();
+  await expect(page.getByRole("heading", { name, level: 1 })).toBeVisible();
+  await page.getByRole("link", { name: "Edit batch", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Edit batch" })).toBeVisible();
 }
 
@@ -143,4 +146,20 @@ Then("I see the batch {string} marked {string}", async ({ page }, name: string, 
 
 Then("no batch was saved", async ({ stub }) => {
   expect(stub.requestsTo("/batches", "POST")).toHaveLength(0);
+});
+
+When("I open the batch {string} from Batches", async ({ page }, name: string) => {
+  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Batches", exact: true }).click();
+  await page.getByRole("link", { name, exact: true }).click();
+  await expect(page.getByRole("heading", { name, level: 1 })).toBeVisible();
+});
+
+Then("the batch's students are {string}", async ({ page }, names: string) => {
+  const students = page.getByRole("region", { name: "Students", exact: true });
+  await expect(students.getByRole("row").filter({ has: page.getByRole("cell") }).getByRole("link")).toHaveText(names.split(", "));
+});
+
+Then("the batch's fees list a bill for {string}", async ({ page }, student: string) => {
+  const fees = page.getByRole("region", { name: "Fees", exact: true });
+  await expect(fees.getByRole("row").filter({ hasText: student }).first()).toBeVisible();
 });
