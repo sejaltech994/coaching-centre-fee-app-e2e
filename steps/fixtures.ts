@@ -22,6 +22,8 @@ export class World {
   payLink?: string;
   /** The parent's own browser (no sign-in), opened from the pay link. */
   parentPage?: Page;
+  /** Where Razorpay should send this centre's webhooks. */
+  webhookUrl?: string;
   /** The account chosen on the (fake) Google account chooser. */
   google?: GoogleAccount;
   /** A new Google account's pending sign-in cookie, spent by POST /auth/register. */

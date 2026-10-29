@@ -137,3 +137,41 @@ Then("the bill's receipt is a PDF, for the owner and from the pay link", async (
     expect(res.headers.get("content-type")).toBe("application/pdf");
   }
 });
+
+// --- The centre's own Razorpay (the API's fake checkout in tests) ---
+
+const TEST_KEYS = { keyId: "rzp_test_e2e", keySecret: "key-secret", webhookSecret: "webhook-secret" };
+
+Given("my centre has connected its Razorpay account with test keys", async ({ page }) => {
+  await page.goto("/settings/");
+  await payments(page).getByRole("button", { name: "Connect Razorpay", exact: true }).click();
+  await payments(page).getByLabel("Key ID").fill(TEST_KEYS.keyId);
+  await payments(page).getByLabel("Key secret").fill(TEST_KEYS.keySecret);
+  await payments(page).getByLabel("Webhook secret").fill(TEST_KEYS.webhookSecret);
+  await payments(page).getByRole("button", { name: "Connect", exact: true }).click();
+  await expect(payments(page)).toContainText(`Razorpay connected: ${TEST_KEYS.keyId}`);
+});
+
+When("the parent pays {string} on the centre's Razorpay checkout", async ({ world }, amount: string) => {
+  const parent = world.parentPage!;
+  await parent.getByRole("button", { name: "Pay by card, UPI or net banking" }).click();
+  await parent.getByRole("button", { name: `Pay ${amount} (test)` }).click();
+  await parent.waitForURL(/\/pay\/\?t=/);
+});
+
+Given("I have connected Razorpay through the API with test keys", async ({ world }) => {
+  const res = await api(world, "PUT", "/centre/razorpay", TEST_KEYS);
+  expect(res.status, JSON.stringify(res.body)).toBe(200);
+  world.webhookUrl = (res.body as { razorpay: { webhookUrl: string } }).razorpay.webhookUrl;
+});
+
+When("a webhook arrives for my centre signed with the wrong secret", async ({ world }) => {
+  // The webhook URL is on the web app's origin (one Worker in hosted environments); locally the API answers it.
+  const path = new URL(world.webhookUrl!).pathname.replace(/^\/api\/v1/, "");
+  const res = await fetch(`${API_URL}${path}`, {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-razorpay-signature": "0".repeat(64), "x-razorpay-event-id": "evt_e2e" },
+    body: JSON.stringify({ event: "payment_link.paid", payload: {} }),
+  });
+  world.api = { status: res.status, headers: res.headers, body: await res.json() };
+});

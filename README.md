@@ -30,7 +30,7 @@ Needs Node 22.13+ and the app running with Google sign-in turned on and the fake
 
 ```sh
 # In the app repo:
-GOOGLE_PROVIDER=fake npm run dev -w apps/api
+GOOGLE_PROVIDER=fake RAZORPAY_PROVIDER=fake npm run dev -w apps/api
 NEXT_PUBLIC_GOOGLE_SIGN_IN=on npm run dev -w apps/web
 
 # Here:

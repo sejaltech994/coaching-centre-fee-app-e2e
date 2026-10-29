@@ -46,3 +46,18 @@ Feature: Payments and receipts
     When the parent opens the pay link
     Then the parent sees "Paid. Thank you!"
     And the parent can download the receipt as a PDF
+
+  @journey
+  Scenario: With the centre's own Razorpay, a parent pays by card and the bill is marked paid by itself
+    Given I have logged in as a new owner
+    And my centre has connected its Razorpay account with test keys
+    And I have the monthly fee plan "Class 10 monthly" of "2,500" due on day "5"
+    And I have a batch "Class 10 Maths" on the fee plan "Class 10 monthly"
+    And I have the student "Aarav Sharma" in "Class 10 Maths"
+    When I open Fees from the menu
+    And I copy the pay link for "Aarav Sharma"
+    And the parent opens the pay link
+    And the parent pays "₹2,500" on the centre's Razorpay checkout
+    Then the parent sees "Paid. Thank you!"
+    When I show "Paid" bills
+    Then the bill for "Aarav Sharma" offers "Receipt #1"

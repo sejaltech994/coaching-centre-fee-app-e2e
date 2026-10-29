@@ -26,3 +26,11 @@ Feature: Payments API contract
     And the error code is "invoice_closed"
     And the bill's pay link shows it paid, without signing in
     And the bill's receipt is a PDF, for the owner and from the pay link
+
+  @journey
+  Scenario: Razorpay webhooks must carry the centre's signature
+    Given I am logged in through the API as a new owner
+    And I have connected Razorpay through the API with test keys
+    When a webhook arrives for my centre signed with the wrong secret
+    Then the response status is 401
+    And the error code is "bad_signature"
