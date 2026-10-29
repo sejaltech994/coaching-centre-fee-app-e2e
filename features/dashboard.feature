@@ -24,8 +24,6 @@ Feature: Signed-in dashboard
     Then I am on the login page
 
   @journey
-  Scenario: A new owner is asked to confirm their mobile number
+  Scenario: The dashboard never asks to confirm a mobile number
     Given I have logged in as a new owner
-    Then I am asked to confirm my mobile number to send fee reminders on WhatsApp
-    When I follow "Confirm number" in the banner
-    Then the page is headed "Profile and account"
+    Then I am never asked to confirm my mobile number

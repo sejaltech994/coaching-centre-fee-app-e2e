@@ -9,9 +9,3 @@ export const WEB_ORIGIN = new URL(WEB_URL).origin;
  * which only a local stack has, so they run only when this is false.
  */
 export const DEPLOYED = WEB_URL.startsWith("https://");
-
-/**
- * File the API's console SMS provider writes to (`[sms:console] Chukta code for …`).
- * Scenarios tagged @sms read real codes from it, so they run only when it is set.
- */
-export const OTP_LOG_FILE = process.env.OTP_LOG_FILE;

@@ -1,8 +1,7 @@
 import { expect, type Page } from "@playwright/test";
 import { API_URL } from "../support/env";
 import { googleSignIn } from "../support/google";
-import { freshPhone, type OtpInbox } from "../support/otp-inbox";
-import { Given, Then, When, type World } from "./fixtures";
+import { Given, Then, When } from "./fixtures";
 
 const section = (page: Page, name: string) => page.getByRole("region", { name, exact: true });
 
@@ -18,10 +17,21 @@ Then("my email is shown as confirmed, from my Google account", async ({ page, wo
   await expect(profile).toContainText("From your Google account");
 });
 
-Then("my mobile number {string} is shown as not confirmed", async ({ page }, number: string) => {
+Then("my mobile number reads {string}", async ({ page }, number: string) => {
+  await expect(section(page, "Profile")).toContainText(`Mobile number${number}`);
+});
+
+When("I change my mobile number to {string}", async ({ page }, number: string) => {
   const profile = section(page, "Profile");
-  await expect(profile).toContainText(number);
-  await expect(profile).toContainText("Not confirmed");
+  await page.getByRole("button", { name: "Edit profile", exact: true }).click();
+  await profile.getByLabel("Mobile number").fill(number);
+  await profile.getByRole("button", { name: "Save", exact: true }).click();
+});
+
+Then("I am never asked to confirm my mobile number", async ({ page }) => {
+  await expect(page.getByRole("main")).toBeVisible();
+  await expect(page.getByText(/confirm your mobile number/i)).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /confirm mobile number/i })).toHaveCount(0);
 });
 
 Then("I sign in with Google as my own email", async ({ page, world }) => {
@@ -61,62 +71,6 @@ Then("my name reads {string}", async ({ page }, name: string) => {
 
 Then("the name field says {string}", async ({ page }, message: string) => {
   await expect(section(page, "Profile").getByLabel("Your name")).toHaveAccessibleDescription(message);
-});
-
-// --- Confirming the mobile number ---
-
-const BANNER = "Confirm your mobile number to start sending fee reminders on WhatsApp.";
-const spaced = (e164: string) => `+91 ${e164.slice(3, 8)} ${e164.slice(8)}`;
-
-Then("I am asked to confirm my mobile number to send fee reminders on WhatsApp", async ({ page }) => {
-  await expect(page.getByRole("status").filter({ hasText: BANNER })).toBeVisible();
-});
-
-Then("I am no longer asked to confirm my mobile number", async ({ page }) => {
-  await expect(page.getByText(BANNER)).toBeHidden();
-});
-
-When("I follow {string} in the banner", async ({ page }, name: string) => {
-  await page.getByRole("status").filter({ hasText: BANNER }).getByRole("link", { name, exact: true }).click();
-});
-
-/** Opens the confirm steps and asks for a code for a fresh number, noting where the API's log was. */
-async function askForCode(page: Page, world: World, otp: OtpInbox) {
-  world.phone = freshPhone();
-  const profile = section(page, "Profile");
-  await page.getByRole("button", { name: "Confirm mobile number", exact: true }).click();
-  await profile.getByLabel("Mobile number").fill(world.phone.slice(3));
-  world.otpMark = otp.mark();
-  await profile.getByRole("button", { name: "Send code", exact: true }).click();
-  await expect(profile.getByText(`Sent by SMS to ${spaced(world.phone)}.`)).toBeVisible();
-}
-
-async function typeCode(page: Page, code: string) {
-  const profile = section(page, "Profile");
-  await profile.getByLabel("Digit 1", { exact: true }).click();
-  await page.keyboard.type(code);
-  await profile.getByRole("button", { name: "Confirm", exact: true }).click();
-}
-
-When("I ask for a code for a new mobile number", async ({ page, world, otp }) => {
-  await askForCode(page, world, otp);
-});
-
-When("I confirm a new mobile number with the code from the SMS", async ({ page, world, otp }) => {
-  await askForCode(page, world, otp);
-  await typeCode(page, await otp.codeFor(world.phone!, world.otpMark));
-});
-
-When("I enter a wrong code", async ({ page, world, otp }) => {
-  const right = await otp.codeFor(world.phone!, world.otpMark);
-  await typeCode(page, right === "000000" ? "111111" : "000000");
-});
-
-Then("my new mobile number is shown as confirmed", async ({ page, world }) => {
-  const profile = section(page, "Profile");
-  await expect(profile).toContainText(spaced(world.phone!));
-  await expect(profile).not.toContainText("Not confirmed");
-  await expect(profile.getByRole("button", { name: "Change mobile number", exact: true })).toBeVisible();
 });
 
 // --- Devices ---

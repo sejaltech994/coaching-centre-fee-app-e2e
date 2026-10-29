@@ -1,6 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 import { defineBddConfig } from "playwright-bdd";
-import { DEPLOYED, OTP_LOG_FILE, WEB_URL } from "./support/env";
+import { DEPLOYED, WEB_URL } from "./support/env";
 
 const testDir = defineBddConfig({
   features: "features/**/*.feature",
@@ -8,9 +8,8 @@ const testDir = defineBddConfig({
 });
 
 // Scenarios that need something this run doesn't have are left out, not failed:
-// @journey needs a local stack (with the fake Google); @deployed needs a live HTTPS
-// site; @sms needs the API's log, where the console SMS provider writes codes.
-const unavailable = [DEPLOYED ? "@journey" : "@deployed", ...(OTP_LOG_FILE ? [] : ["@sms"])];
+// @journey needs a local stack (with the fake Google); @deployed needs a live HTTPS site.
+const unavailable = [DEPLOYED ? "@journey" : "@deployed"];
 const excluding = (tags: string[]) => new RegExp([...tags, ...unavailable].join("|"));
 
 const ci = !!process.env.CI;
