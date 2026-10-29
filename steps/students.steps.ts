@@ -181,3 +181,38 @@ When("I enrol the student in that batch again through the API", async ({ world }
 When("they GET the first owner's student", async ({ world }) => {
   await api(world, "GET", `/students/${world.studentId}`, undefined, world.otherAccessToken);
 });
+
+// --- Importing from a CSV ---
+
+const HEADINGS = "Student name,Parent name,Parent mobile,WhatsApp consent,Batches";
+
+async function chooseCsv(page: Page, rows: string[]) {
+  await page.getByLabel("CSV file").setInputFiles({
+    name: "students.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from([HEADINGS, ...rows].join("\n")),
+  });
+}
+
+When(
+  "I import a CSV with {string} in {string} and {string} with no parent",
+  async ({ page }, first: string, batch: string, second: string) => {
+    await page.getByRole("button", { name: "Import from CSV", exact: true }).click();
+    await chooseCsv(page, [`${first},Ravi Rao,91234 56789,yes,${batch}`, `${second},,98765 43210,no,`]);
+  },
+);
+
+When(
+  "I choose a CSV with {string} in {string} and {string} in no batch",
+  async ({ page }, first: string, batch: string, second: string) => {
+    await chooseCsv(page, [`${first},Ravi Rao,91234 56789,yes,${batch}`, `${second},Meera Shah,99887 76655,no,`]);
+  },
+);
+
+Then("the import says {string}", async ({ page }, text: string) => {
+  await expect(page.getByRole("dialog", { name: "Import students" })).toContainText(text);
+});
+
+When("I confirm the import", async ({ page }) => {
+  await page.getByRole("dialog").getByRole("button", { name: /^Import \d+ student/ }).click();
+});
