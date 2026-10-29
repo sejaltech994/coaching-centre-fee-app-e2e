@@ -99,3 +99,24 @@ Then("the other device is signed out", async ({ world }) => {
   const res = await fetch(`${API_URL}/auth/refresh`, { method: "POST", headers: { cookie: `chukta_rt=${world.otherDevice}` } });
   expect(res.status).toBe(401);
 });
+
+// --- Your data and deleting the account ---
+
+Then("downloading my data gives a JSON file with my centre {string}", async ({ page }, centre: string) => {
+  const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Download my data" }).click()]);
+  const path = await download.path();
+  const { readFile } = await import("node:fs/promises");
+  const data = JSON.parse(await readFile(path, "utf8")) as { centre: { name: string } };
+  expect(data.centre.name).toBe(centre);
+});
+
+When("I delete my account, typing {string}", async ({ page }, name: string) => {
+  await page.getByRole("button", { name: "Delete account", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Delete your account?" });
+  await dialog.getByLabel(`Type ${name} to confirm`).fill(name);
+  await dialog.getByRole("button", { name: "Delete account", exact: true }).click();
+});
+
+Then("I am warned the account will be deleted", async ({ page }) => {
+  await expect(page.getByRole("alert").filter({ hasText: /This account will be deleted on \d{1,2} \w{3} \d{4}\./ })).toBeVisible();
+});

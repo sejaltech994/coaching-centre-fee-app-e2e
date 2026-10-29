@@ -86,3 +86,22 @@ Feature: Profile and account
     Then I see "Signed out of your other devices."
     And my devices are "This device" only
     And the other device is signed out
+
+  @journey
+  Scenario: I can download everything the centre has
+    Given I have logged in as a new owner
+    When I open Settings from the menu
+    Then downloading my data gives a JSON file with my centre "Sunrise Classes"
+
+  @journey
+  Scenario: Deleting the account waits 30 days, and signing in before then keeps it
+    Given I have signed up with Google
+    When I open Settings from the menu
+    And I delete my account, typing "Sunrise Classes"
+    Then I am on the login page
+    And I am told "Your account will be deleted in 30 days. Sign in before then to keep it."
+    When I continue with Google
+    Then I am warned the account will be deleted
+    When I open Settings from the menu
+    And I press "Keep my account"
+    Then I see "Your account is kept."
