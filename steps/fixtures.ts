@@ -1,4 +1,4 @@
-import type { Response } from "@playwright/test";
+import type { Page, Response } from "@playwright/test";
 import { createBdd, test as base } from "playwright-bdd";
 import { ApiStub } from "../support/api-stub";
 import { API_URL, WEB_ORIGIN } from "../support/env";
@@ -18,6 +18,10 @@ export class World {
   feePlanId?: string;
   enrolmentId?: string;
   invoiceId?: string;
+  /** A bill's pay link, as the owner copied it to send to the parent. */
+  payLink?: string;
+  /** The parent's own browser (no sign-in), opened from the pay link. */
+  parentPage?: Page;
   /** The account chosen on the (fake) Google account chooser. */
   google?: GoogleAccount;
   /** A new Google account's pending sign-in cookie, spent by POST /auth/register. */
@@ -35,7 +39,7 @@ export const test = base.extend<{ world: World; stub: ApiStub }>({
   stub: async ({}, use) => use(new ApiStub(API_URL, WEB_ORIGIN)),
 });
 
-export const { Given, When, Then, BeforeScenario } = createBdd(test);
+export const { Given, When, Then, BeforeScenario, AfterScenario } = createBdd(test);
 
 // @mocked scenarios run against a stubbed API and a controllable clock,
 // installed before the first page load.

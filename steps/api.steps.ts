@@ -186,6 +186,10 @@ When(/^I PATCH "([^"]+)" with body (.+)$/, async ({ world }, path: string, body:
   await send(world, "PATCH", path, { body: JSON.parse(body) });
 });
 
+When(/^I PUT "([^"]+)" with my access token and body (.+)$/, async ({ world }, path: string, body: string) => {
+  await send(world, "PUT", path, { body: JSON.parse(body), headers: { authorization: `Bearer ${world.accessToken}` } });
+});
+
 When(/^I PATCH "([^"]+)" with my access token and body (.+)$/, async ({ world }, path: string, body: string) => {
   await send(world, "PATCH", path, { body: JSON.parse(body), headers: { authorization: `Bearer ${world.accessToken}` } });
 });
