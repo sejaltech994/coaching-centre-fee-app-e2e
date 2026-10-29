@@ -17,12 +17,13 @@ const openStudents = async (page: Page) => {
 
 const studentRows = (page: Page) => page.getByRole("table").getByRole("row").filter({ has: page.getByRole("link") });
 
-async function addStudent(page: Page, s: { name: string; parent: string; phone: string; batch?: string }) {
+async function addStudent(page: Page, s: { name: string; parent: string; phone: string; batch?: string; whatsapp?: boolean }) {
   await page.getByRole("link", { name: "Add student", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Add a student", level: 1 })).toBeVisible();
   await page.getByLabel("Student’s name").fill(s.name);
   await page.getByLabel("Parent’s name").fill(s.parent);
   await page.getByLabel("Parent’s mobile number").fill(s.phone);
+  if (s.whatsapp) await page.getByRole("checkbox", { name: "The parent agreed to receive fee reminders on WhatsApp." }).check();
   if (s.batch) await page.getByRole("checkbox", { name: s.batch, exact: true }).check();
   await page.getByRole("button", { name: "Add student", exact: true }).click();
 }
@@ -64,6 +65,12 @@ Then(
 Given("I have the student {string} in {string}", async ({ page }, name: string, batch: string) => {
   await openStudents(page);
   await addStudent(page, { name, parent: "Neha Sharma", phone: "98765 43210", batch });
+  await onStudentsPage(page);
+});
+
+Given("I have the student {string}, whose parent agreed to WhatsApp, in {string}", async ({ page }, name: string, batch: string) => {
+  await openStudents(page);
+  await addStudent(page, { name, parent: "Neha Sharma", phone: "98765 43210", batch, whatsapp: true });
   await onStudentsPage(page);
 });
 
