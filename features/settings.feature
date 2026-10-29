@@ -6,15 +6,17 @@ Feature: Profile and account
 
   "Profile and account" (W11 on the design canvas), for Google-only sign-in:
   the email is the Google account's and can't be changed here; there is no
-  password; the mobile number shows whether it is confirmed.
+  password; the mobile number is the owner's own, typed as they like and never
+  confirmed with a code.
 
   @journey
-  Scenario: Settings shows my Google email, my unconfirmed number and how I sign in
+  Scenario: Settings shows my Google email, my number and how I sign in
     Given I have logged in as a new owner
     When I open Settings from the menu
     Then the page is headed "Profile and account"
     And my email is shown as confirmed, from my Google account
-    And my mobile number "+91 98765 43210" is shown as not confirmed
+    And my mobile number reads "98765 43210"
+    And I am never asked to confirm my mobile number
     And I sign in with Google as my own email
 
   @journey
@@ -52,27 +54,21 @@ Feature: Profile and account
     Then I am on the login page
 
   @journey
-  Scenario: Settings asks me to confirm my mobile number
+  Scenario: I can change my mobile number without a code
     Given I have logged in as a new owner
     When I open Settings from the menu
-    Then I am asked to confirm my mobile number to send fee reminders on WhatsApp
+    And I change my mobile number to "+44 7700 900123"
+    Then I see "Saved."
+    And my mobile number reads "+44 7700 900123"
+    When I reload the page
+    Then my mobile number reads "+44 7700 900123"
 
-  @journey @sms
-  Scenario: I confirm a mobile number with the code sent to it
+  @journey
+  Scenario: The mobile number can be removed
     Given I have logged in as a new owner
     When I open Settings from the menu
-    And I confirm a new mobile number with the code from the SMS
-    Then I see "Mobile number confirmed."
-    And my new mobile number is shown as confirmed
-    And I am no longer asked to confirm my mobile number
-
-  @journey @sms
-  Scenario: A wrong code says how many tries are left
-    Given I have logged in as a new owner
-    When I open Settings from the menu
-    And I ask for a code for a new mobile number
-    And I enter a wrong code
-    Then I see the error "That code didn’t match. 4 tries left."
+    And I change my mobile number to ""
+    Then my mobile number reads "Not added"
 
   @journey
   Scenario: Settings shows the device I'm using
@@ -90,3 +86,22 @@ Feature: Profile and account
     Then I see "Signed out of your other devices."
     And my devices are "This device" only
     And the other device is signed out
+
+  @journey
+  Scenario: I can download everything the centre has
+    Given I have logged in as a new owner
+    When I open Settings from the menu
+    Then downloading my data gives a JSON file with my centre "Sunrise Classes"
+
+  @journey
+  Scenario: Deleting the account waits 30 days, and signing in before then keeps it
+    Given I have signed up with Google
+    When I open Settings from the menu
+    And I delete my account, typing "Sunrise Classes"
+    Then I am on the login page
+    And I am told "Your account will be deleted in 30 days. Sign in before then to keep it."
+    When I continue with Google
+    Then I am warned the account will be deleted
+    When I open Settings from the menu
+    And I press "Keep my account"
+    Then I see "Your account is kept."

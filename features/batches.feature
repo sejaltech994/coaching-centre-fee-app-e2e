@@ -76,3 +76,13 @@ Feature: Batches
     When I open the dashboard
     And I open Batches from the dashboard
     Then I am on the Batches page
+
+  @journey
+  Scenario: A batch's page shows its students and its bills
+    Given I have logged in as a new owner
+    And I have the monthly fee plan "Class 10 monthly" of "2,500" due on day "5"
+    And I have a batch "Class 10 Maths" on the fee plan "Class 10 monthly"
+    And I have the student "Aarav Sharma" in "Class 10 Maths"
+    When I open the batch "Class 10 Maths" from Batches
+    Then the batch's students are "Aarav Sharma"
+    And the batch's fees list a bill for "Aarav Sharma"

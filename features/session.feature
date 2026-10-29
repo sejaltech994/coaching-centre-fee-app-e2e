@@ -31,3 +31,13 @@ Feature: Staying logged in, and being logged out when the login ends
     And I am told "Your login has expired. Log in to continue."
     When I continue with Google
     Then I am on my dashboard
+
+  @journey
+  Scenario: After logging back in I'm back on the page I was sent away from
+    Given I have signed up with Google
+    When I press "Log out"
+    And I open "/fees/" without being logged in
+    Then I am on the login page
+    And I am told "Log in to continue."
+    When I continue with Google
+    Then the page is headed "Fees"

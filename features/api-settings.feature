@@ -1,6 +1,7 @@
 @api @settings
 Feature: Profile and account API contract
-  PATCH /me changes the owner's name; PATCH /centre changes the centre's name,
+  PATCH /me changes the owner's name and mobile number (as typed, never
+  confirmed); PATCH /centre changes the centre's name,
   city and type, with sign-up's rules and messages. GET /me/identities lists
   how the owner signs in. All need an access token, and act only on the
   owner's own account and centre.
@@ -36,29 +37,23 @@ Feature: Profile and account API contract
     Then the response status is 200
     And my only sign-in method is Google, as my own email
 
-  @journey @sms
-  Scenario: A mobile number is confirmed with the code sent to it
+  @journey
+  Scenario: The mobile number is saved as typed, with no code
     Given I am logged in through the API as a new owner
-    When I ask the API for a code for a new mobile number
-    Then the response status is 202
-    When I confirm the number through the API with the code from the SMS
+    When I PATCH "/me" with my access token and body {"fullName":"Asha Sharma","phone":" 12345 "}
     Then the response status is 200
-    And my number is confirmed
-
-  @journey @sms
-  Scenario: A number another owner has confirmed can't be confirmed again
-    Given I am logged in through the API as a new owner
-    And I have confirmed a new mobile number through the API
-    When another new owner asks the API for a code for the same number
-    Then the response status is 409
-    And the error code is "phone_taken"
+    And my mobile number is "12345"
 
   @journey
-  Scenario: A number that isn't an Indian mobile is named as the field at fault
+  Scenario Outline: There is no mobile-number code to ask for or check
     Given I am logged in through the API as a new owner
-    When I POST to "/me/phone/verify" with my access token and body {"phone":"12345"}
-    Then the response status is 400
-    And the error names the fields "phone"
+    When I POST to "<path>" with my access token and body {"phone":"9876543210","code":"123456"}
+    Then the response status is 404
+
+    Examples:
+      | path              |
+      | /me/phone/verify  |
+      | /me/phone/confirm |
 
   @journey
   Scenario: Signing out of other devices keeps this one

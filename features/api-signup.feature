@@ -3,8 +3,8 @@ Feature: Sign-up and profile API contract
   Google is the only way in. A Google account Chukta hasn't seen creates nothing
   at the callback: it waits 15 minutes in a pending cookie while its owner fills
   in sign-up, and POST /auth/register then creates the owner, centre, consent and
-  Google link together and starts a session. The mobile number is for WhatsApp
-  reminders and stays unconfirmed until a later code. GET /me returns the
+  Google link together and starts a session. The owner's mobile number is
+  optional and kept as typed, never confirmed. GET /me returns the
   signed-in owner and their centre.
 
   Scenario: Signing up needs a Google sign-in
@@ -29,7 +29,7 @@ Feature: Sign-up and profile API contract
     Given I have signed in with a new Google account through the API
     When I sign up through the API with the mobile number "98765 43210" for "Sunrise Classes", a "coaching" centre in "Pune"
     Then the response status is 201
-    And the sign-up says this is a new account on the free plan, with the mobile number unconfirmed
+    And the sign-up says this is a new account on the free plan, with the mobile number "98765 43210"
     And the refresh cookie is HttpOnly, SameSite=Strict and scoped to "/api/v1/auth"
     When I GET "/me" with my access token
     Then the response status is 200
@@ -38,7 +38,7 @@ Feature: Sign-up and profile API contract
   @journey
   Scenario: The terms must be accepted, and the fields at fault are named
     Given I have signed in with a new Google account through the API
-    When I sign up through the API with {"fullName":"","phone":"12345","centreName":"","city":"","centreType":"bakery","acceptedTerms":false}
+    When I sign up through the API with {"fullName":"","phone":"999999999999999999999","centreName":"","city":"","centreType":"bakery","acceptedTerms":false}
     Then the response status is 400
     And the error code is "invalid_request"
     And the error names the fields "fullName, phone, centreName, city, centreType, acceptedTerms"

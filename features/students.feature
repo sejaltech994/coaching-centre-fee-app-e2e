@@ -65,3 +65,16 @@ Feature: Students
     Then I am told I have no students yet
     When I show students who have left
     Then the students listed are "Aarav Sharma"
+
+  @journey
+  Scenario: Students can be imported from a CSV, once every row is right
+    Given I have logged in as a new owner
+    And I have a batch "Class 10 Maths"
+    When I open Students from the menu
+    And I import a CSV with "Diya Rao" in "Class 10 Maths" and "Kabir" with no parent
+    Then the import says "1 ready, 1 to fix. Fix the file and choose it again."
+    When I choose a CSV with "Diya Rao" in "Class 10 Maths" and "Kabir Shah" in no batch
+    Then the import says "2 ready to import."
+    When I confirm the import
+    Then I see "Students imported: 2."
+    And the students listed are "Diya Rao, Kabir Shah"

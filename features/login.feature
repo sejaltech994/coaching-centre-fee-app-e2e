@@ -48,12 +48,13 @@ Feature: Sign in with Google
     Then I see the error "Google sign-in was cancelled. Try again when you’re ready."
     And the page offers "Continue with Google" and no other way to sign in
 
-  @mocked
-  Scenario: A mobile number that isn't Indian is explained before anything is sent
-    When I open the sign-up page
-    And I sign up with the mobile number "12345" for "Sunrise Classes", a "Coaching" centre in "Pune"
-    Then the mobile number field says "Enter a 10-digit Indian mobile number."
-    And nothing was sent to sign up
+  @journey
+  Scenario: The mobile number is optional at sign-up
+    Given a Google account that has never used Chukta
+    When I open the login page
+    And I continue with Google
+    And I sign up with the mobile number "" for "Sunrise Classes", a "Coaching" centre in "Pune"
+    Then I am on the Batches page
 
   @mocked
   Scenario: Sign-up without a Google sign-in goes back to sign in
