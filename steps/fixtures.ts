@@ -19,6 +19,8 @@ export class World {
   google?: GoogleAccount;
   /** A new Google account's pending sign-in cookie, spent by POST /auth/register. */
   pending?: string;
+  /** The refresh token of a second sign-in by the same owner: "another device". */
+  otherDevice?: string;
   /** The number being confirmed (E.164), and where the API's log was before its code was sent. */
   phone?: string;
   otpMark = 0;

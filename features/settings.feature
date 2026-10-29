@@ -73,3 +73,20 @@ Feature: Profile and account
     And I ask for a code for a new mobile number
     And I enter a wrong code
     Then I see the error "That code didn’t match. 4 tries left."
+
+  @journey
+  Scenario: Settings shows the device I'm using
+    Given I have logged in as a new owner
+    When I open Settings from the menu
+    Then my devices are "This device" only
+
+  @journey
+  Scenario: I can sign out of my other devices
+    Given I have logged in as a new owner
+    And I am also signed in on another device
+    When I open Settings from the menu
+    Then I see 2 devices, this one first
+    When I press "Sign out of all other devices"
+    Then I see "Signed out of your other devices."
+    And my devices are "This device" only
+    And the other device is signed out
