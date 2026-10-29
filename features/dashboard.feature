@@ -27,3 +27,22 @@ Feature: Signed-in dashboard
   Scenario: The dashboard never asks to confirm a mobile number
     Given I have logged in as a new owner
     Then I am never asked to confirm my mobile number
+
+  @journey
+  Scenario: A new centre's dashboard points to its first steps
+    Given I have logged in as a new owner
+    When I open the dashboard
+    Then the dashboard shows "Collected" "₹0"
+    And the dashboard offers "Set up batches"
+
+  @journey
+  Scenario: The dashboard shows the month's money once fees are paid
+    Given I have logged in as a new owner
+    And I have the monthly fee plan "Class 10 monthly" of "2,500" due on day "5"
+    And I have a batch "Class 10 Maths" on the fee plan "Class 10 monthly"
+    And I have the student "Aarav Sharma" in "Class 10 Maths"
+    When I open Fees from the menu
+    And I record a "Cash" payment for "Aarav Sharma"
+    And I open the dashboard
+    Then the dashboard shows "Collected" "₹2,500"
+    And the dashboard says "Nobody owes anything overdue."
