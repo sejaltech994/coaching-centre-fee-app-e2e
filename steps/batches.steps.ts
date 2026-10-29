@@ -17,7 +17,7 @@ const DAY_NAMES: Record<string, string> = {
 const batchRow = (page: Page, name: string) =>
   page.getByRole("row").filter({ has: page.getByRole("link", { name, exact: true }) });
 
-async function fillBatchForm(page: Page, f: { name?: string; subject?: string; days?: string; start?: string; end?: string }) {
+export async function fillBatchForm(page: Page, f: { name?: string; subject?: string; days?: string; start?: string; end?: string }) {
   if (f.name !== undefined) await page.getByLabel("Batch name").fill(f.name);
   if (f.subject) await page.getByLabel("Subject (optional)").fill(f.subject);
   for (const day of (f.days ?? "").split(",").map((d) => d.trim()).filter(Boolean)) {
