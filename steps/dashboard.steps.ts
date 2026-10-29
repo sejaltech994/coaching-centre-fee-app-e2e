@@ -40,3 +40,15 @@ Then("the dashboard offers {string}", async ({ page }, link: string) => {
 Then("the dashboard says {string}", async ({ page }, text: string) => {
   await expect(page.getByRole("main").getByText(text)).toBeVisible();
 });
+
+Then(
+  "this month's report lists {string} as {string} by {string}",
+  async ({ page }, student: string, status: string, method: string) => {
+    const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: /^Download .* report$/ }).click()]);
+    const { readFile } = await import("node:fs/promises");
+    const lines = (await readFile(await download.path(), "utf8")).split(/\r?\n/);
+    const row = lines.find((line) => line.includes(student) && line.includes(`,${status},`));
+    expect(row, lines.join("\n")).toBeDefined();
+    expect(row).toContain(`,${method},`);
+  },
+);

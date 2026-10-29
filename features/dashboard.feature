@@ -46,3 +46,15 @@ Feature: Signed-in dashboard
     And I open the dashboard
     Then the dashboard shows "Collected" "₹2,500"
     And the dashboard says "Nobody owes anything overdue."
+
+  @journey
+  Scenario: On Pro, the month's report downloads as a spreadsheet
+    Given I have logged in as a new owner
+    And my centre is on Pro
+    And I have the monthly fee plan "Class 10 monthly" of "2,500" due on day "5"
+    And I have a batch "Class 10 Maths" on the fee plan "Class 10 monthly"
+    And I have the student "Aarav Sharma" in "Class 10 Maths"
+    When I open Fees from the menu
+    And I record a "Cash" payment for "Aarav Sharma"
+    And I open the dashboard
+    Then this month's report lists "Aarav Sharma" as "paid" by "cash"
