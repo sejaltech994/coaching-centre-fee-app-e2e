@@ -50,6 +50,7 @@ Feature: Payments and receipts
   @journey
   Scenario: With the centre's own Razorpay, a parent pays by card and the bill is marked paid by itself
     Given I have logged in as a new owner
+    And my centre is on Pro
     And my centre has connected its Razorpay account with test keys
     And I have the monthly fee plan "Class 10 monthly" of "2,500" due on day "5"
     And I have a batch "Class 10 Maths" on the fee plan "Class 10 monthly"

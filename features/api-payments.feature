@@ -30,6 +30,7 @@ Feature: Payments API contract
   @journey
   Scenario: Razorpay webhooks must carry the centre's signature
     Given I am logged in through the API as a new owner
+    And my centre is on Pro through the API
     And I have connected Razorpay through the API with test keys
     When a webhook arrives for my centre signed with the wrong secret
     Then the response status is 401
